@@ -9,7 +9,7 @@ use riglr_core::{
     ToolWorker,
 };
 use riglr_solana_tools::{
-    balance::{get_sol_balance_tool, get_spl_token_balance_tool},
+    balance::{GetSolBalanceTool, GetSplTokenBalanceTool},
     clients::ApiClients,
 };
 use serde_json::json;
@@ -40,12 +40,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     app_context.set_extension(Arc::new(api_clients));
 
     // Create ToolWorker with default configuration
-    let worker =
-        ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default(), app_context);
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+        ExecutionConfig::default(),
+        app_context.clone(),
+    );
 
-    // Register tools using factory functions
-    worker.register_tool(get_sol_balance_tool()).await;
-    worker.register_tool(get_spl_token_balance_tool()).await;
+    // Register tools using Tool struct constructors with context
+    worker
+        .register_tool(Arc::new(GetSolBalanceTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(GetSplTokenBalanceTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
 
     println!("ToolWorker initialized with registered tools");
 

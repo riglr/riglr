@@ -216,6 +216,19 @@ impl ServiceContext {
     }
 }
 
+impl std::fmt::Debug for ServiceContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServiceContext")
+            .field("config", &self.config)
+            .field("state", &"Arc<RwLock<ServiceState>>")
+            .field("store", &"Arc<dyn DataStore>")
+            .field("metrics", &"Arc<MetricsCollector>")
+            .field("shutdown_tx", &"broadcast::Sender<()>")
+            .field("health", &"Arc<RwLock<HealthStatus>>")
+            .finish()
+    }
+}
+
 /// Service lifecycle trait
 #[async_trait::async_trait]
 pub trait ServiceLifecycle {
@@ -315,7 +328,7 @@ impl ShutdownCoordinator {
                 Ok(result) => {
                     match &result {
                         Ok(_) => info!("Service {} shut down successfully", i),
-                        Err(ref e) => error!("Service {} shutdown error: {}", i, e),
+                        Err(e) => error!("Service {} shutdown error: {}", i, e),
                     }
                     result
                 }
@@ -345,6 +358,21 @@ impl ShutdownCoordinator {
             error!("Some services failed to shut down: {:?}", errors);
             Err(errors.into_iter().next().unwrap().1)
         }
+    }
+}
+
+impl std::fmt::Debug for ShutdownCoordinator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShutdownCoordinator")
+            .field("timeout", &self.timeout)
+            .field(
+                "services",
+                &format!(
+                    "Vec<Box<dyn ServiceLifecycle + Send + Sync>> (len: {})",
+                    self.services.len()
+                ),
+            )
+            .finish()
     }
 }
 

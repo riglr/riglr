@@ -434,15 +434,16 @@ impl DataStore for PostgresStore {
     async fn count_events(&self, _filter: &EventFilter) -> IndexerResult<u64> {
         // This simplified version counts all events. A full implementation would
         // require dynamic query building similar to `query_events`.
-        let row = sqlx::query("SELECT COUNT(*) as count FROM events")
+        let fetch_result = sqlx::query("SELECT COUNT(*) as count FROM events")
             .fetch_one(&self.pool)
-            .await
-            .map_err(|e| {
-                error!("Count query failed: {}", e);
-                IndexerError::Storage(StorageError::QueryFailed {
-                    query: "SELECT COUNT(*)".to_string(),
-                })
-            })?;
+            .await;
+        let mapped_result = fetch_result.map_err(|e| {
+            error!("Count query failed: {}", e);
+            IndexerError::Storage(StorageError::QueryFailed {
+                query: "SELECT COUNT(*)".to_string(),
+            })
+        });
+        let row = mapped_result?;
 
         let count: i64 = row.get("count");
         Ok(count as u64)
@@ -499,14 +500,13 @@ impl DataStore for PostgresStore {
     }
 
     async fn health_check(&self) -> IndexerResult<()> {
-        sqlx::query("SELECT 1")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| {
-                IndexerError::Storage(StorageError::ConnectionFailed {
-                    message: format!("Health check failed: {}", e),
-                })
-            })?;
+        let execute_result = sqlx::query("SELECT 1").execute(&self.pool).await;
+        let mapped_result = execute_result.map_err(|e| {
+            IndexerError::Storage(StorageError::ConnectionFailed {
+                message: format!("Health check failed: {}", e),
+            })
+        });
+        mapped_result?;
 
         Ok(())
     }

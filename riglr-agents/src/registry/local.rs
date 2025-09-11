@@ -14,6 +14,7 @@ use tracing::{debug, info, warn};
 /// This registry stores all agent information in memory and provides
 /// fast access to agent data. It's suitable for development, testing,
 /// and single-node production deployments.
+#[derive(Debug)]
 pub struct LocalAgentRegistry {
     /// Registered agents
     agents: RwLock<HashMap<AgentId, Arc<dyn Agent>>>,

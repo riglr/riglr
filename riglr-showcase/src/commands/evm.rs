@@ -102,14 +102,14 @@ async fn display_token_balances(
 
         pb.set_message(format!("Fetching {} balance...", symbol));
 
-        match get_erc20_balance(
+        let balance_result = get_erc20_balance(
             contract_address.clone(),
             wallet_address.to_string(),
             Some(chain_id),
             context,
         )
-        .await
-        {
+        .await;
+        match balance_result {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
                 println!(
@@ -141,7 +141,7 @@ async fn display_uniswap_quote(pb: &ProgressBar, context: &ApplicationContext) -
     let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
     let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 
-    match get_uniswap_quote(
+    let quote_result = get_uniswap_quote(
         weth.to_string(), // token_in
         usdc.to_string(), // token_out
         "1".to_string(),  // amount_in (1 WETH)
@@ -152,8 +152,8 @@ async fn display_uniswap_quote(pb: &ProgressBar, context: &ApplicationContext) -
         Some(1),          // chain_id (Ethereum mainnet)
         context,
     )
-    .await
-    {
+    .await;
+    match quote_result {
         Ok(quote) => {
             println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC)".green().bold());
             println!("   Input: {} {}", quote.amount_in, quote.token_in);
@@ -189,7 +189,8 @@ async fn handle_menu_selection(
             let new_address: String = Input::new()
                 .with_prompt("Enter wallet address")
                 .interact_text()?;
-            Box::pin(run_demo(context, Some(new_address), chain_id)).await?;
+            let demo_result = Box::pin(run_demo(context, Some(new_address), chain_id)).await;
+            demo_result?;
             Ok(true)
         }
         1 => {
@@ -247,7 +248,8 @@ async fn handle_menu_selection(
                 .interact()?;
 
             let new_chain_id = chains[chain_selection].1;
-            Box::pin(run_demo(context, Some(wallet_address), new_chain_id)).await?;
+            let demo_result = Box::pin(run_demo(context, Some(wallet_address), new_chain_id)).await;
+            demo_result?;
             Ok(true)
         }
         _ => Ok(false),

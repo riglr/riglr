@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 /// Abstract factory for creating signers from authentication data
 #[async_trait]
-pub trait SignerFactory: Send + Sync {
+pub trait SignerFactory: Send + Sync + std::fmt::Debug {
     /// Create a signer from authentication data
     ///
     /// # Arguments
@@ -42,6 +42,14 @@ pub struct AuthenticationData {
 #[derive(Default)]
 pub struct CompositeSignerFactory {
     factories: HashMap<String, std::sync::Arc<dyn SignerFactory>>,
+}
+
+impl std::fmt::Debug for CompositeSignerFactory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompositeSignerFactory")
+            .field("factories", &self.factories.keys().collect::<Vec<_>>())
+            .finish()
+    }
 }
 
 impl CompositeSignerFactory {
@@ -102,6 +110,7 @@ mod tests {
     use solana_sdk::signature::Keypair;
 
     // Mock signer factory for testing
+    #[derive(Debug)]
     struct MockSignerFactory;
 
     #[async_trait]
@@ -224,6 +233,7 @@ mod tests {
         let mut composite = CompositeSignerFactory::default();
 
         // Mock factory that returns multiple auth types
+        #[derive(Debug)]
         struct MultiAuthFactory;
 
         #[async_trait]

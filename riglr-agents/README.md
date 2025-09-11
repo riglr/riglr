@@ -28,7 +28,7 @@ Add riglr-agents to your `Cargo.toml`:
 [dependencies]
 riglr-agents = "0.1.0"
 riglr-core = "0.1.0"
-rig-core = "0.17.1"  # For LLM integration
+rig-core = "0.19.0"  # For LLM integration
 ```
 
 ## Documentation

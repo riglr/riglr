@@ -13,6 +13,7 @@ use tracing::info;
 use crate::metrics::MetricsCollector;
 
 /// Prometheus metrics server state
+#[derive(Debug)]
 pub struct PrometheusState {
     /// Metrics collector instance
     pub collector: Arc<MetricsCollector>,

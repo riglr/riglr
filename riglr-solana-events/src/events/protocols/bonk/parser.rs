@@ -25,6 +25,7 @@ pub const BONK_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("bonksoHKfNJJ8Wo8ZJjpw7dHGePNxS2z2WE5GxUPdSo");
 
 /// Bonk event parser
+#[derive(Debug)]
 pub struct BonkEventParser {
     inner: GenericEventParser,
 }
@@ -479,14 +480,14 @@ impl ProtocolParser for BonkEventParser {
     }
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(params)
     }

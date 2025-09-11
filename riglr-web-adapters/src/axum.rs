@@ -24,6 +24,14 @@ pub struct AxumRiglrAdapter {
     signer_factory: Arc<dyn SignerFactory>,
 }
 
+impl std::fmt::Debug for AxumRiglrAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AxumRiglrAdapter")
+            .field("signer_factory", &"Arc<dyn SignerFactory>")
+            .finish()
+    }
+}
+
 impl AxumRiglrAdapter {
     /// Create a new Axum adapter with the given signer factory and RPC config
     pub fn new(signer_factory: Arc<dyn SignerFactory>) -> Self {
@@ -116,6 +124,7 @@ impl AxumRiglrAdapter {
     }
 
     /// SSE handler using SignerFactory pattern
+    #[allow(impl_trait_overcaptures)]
     pub async fn sse_handler<A>(
         &self,
         headers: HeaderMap,
@@ -407,6 +416,7 @@ mod tests {
     }
 
     // Mock signer factory for testing
+    #[derive(Debug)]
     struct MockSignerFactory {
         supported_types: Vec<String>,
         should_fail: bool,

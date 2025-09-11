@@ -156,6 +156,19 @@ pub struct DynamicStreamWrapper<S: Stream> {
     is_started: bool,
 }
 
+impl<S: Stream + std::fmt::Debug> std::fmt::Debug for DynamicStreamWrapper<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DynamicStreamWrapper")
+            .field("inner", &self.inner)
+            .field(
+                "event_forwarder",
+                &"broadcast::Sender<Arc<dyn Any + Send + Sync>>",
+            )
+            .field("is_started", &self.is_started)
+            .finish()
+    }
+}
+
 impl<S: Stream + 'static> DynamicStreamWrapper<S> {
     /// Create a new dynamic stream wrapper around the given stream
     pub fn new(stream: S) -> Self {
@@ -173,8 +186,14 @@ impl<S: Stream + 'static> DynamicStreamWrapper<S> {
         let tx = self.event_forwarder.clone();
 
         tokio::spawn(async move {
-            while let Ok(event) = rx.recv().await {
-                let _ = tx.send(event as Arc<dyn Any + Send + Sync>);
+            loop {
+                let recv_result = rx.recv().await;
+                match recv_result {
+                    Ok(event) => {
+                        let _ = tx.send(event as Arc<dyn Any + Send + Sync>);
+                    }
+                    Err(_) => break,
+                }
             }
         });
     }
@@ -198,14 +217,15 @@ impl<S: Stream + Send + Sync + 'static> DynamicStream for DynamicStreamWrapper<S
         }
 
         // Start forwarding events
-        self.forward_events().await;
+        let _ = self.forward_events().await;
         self.is_started = true;
 
         Ok(())
     }
 
     async fn stop_dynamic(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let result = self.inner.stop().await;
+        result
     }
 
     fn is_running_dynamic(&self) -> bool {
@@ -213,7 +233,8 @@ impl<S: Stream + Send + Sync + 'static> DynamicStream for DynamicStreamWrapper<S
     }
 
     async fn health_dynamic(&self) -> StreamHealth {
-        self.inner.health().await
+        let health = self.inner.health().await;
+        health
     }
 
     fn name_dynamic(&self) -> &str {

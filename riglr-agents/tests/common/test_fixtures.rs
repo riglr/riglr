@@ -4,6 +4,7 @@ use std::time::Duration;
 
 /// Builder for creating test tasks with customizable parameters.
 /// Provides a fluent interface for constructing tasks with various configurations.
+#[derive(Debug)]
 pub struct TestTaskBuilder {
     task_type: TaskType,
     parameters: serde_json::Value,

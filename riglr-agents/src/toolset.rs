@@ -1,54 +1,51 @@
 // riglr-agents/src/toolset.rs
 
-use crate::adapter::RigToolAdapter; // Import the adapter
-use riglr_core::{idempotency::IdempotencyStore, Tool, ToolWorker};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// A collection of tools that can be used by an agent.
 /// This is the single source of truth for an agent's capabilities.
-#[derive(Clone, Default)]
+///
+/// Since rig::tool::Tool is not object-safe, we can't store different tool types
+/// in a collection. Instead, the Toolset acts as a builder pattern that applies
+/// tools directly to the rig::AgentBuilder when needed.
+#[derive(Clone, Debug)]
 pub struct Toolset {
-    tools: HashMap<String, Arc<dyn Tool>>,
+    context: Arc<riglr_core::provider::ApplicationContext>,
 }
 
 impl Toolset {
-    /// Adds a tool to the set.
-    pub fn add_tool(mut self, tool: Arc<dyn Tool>) -> Self {
-        self.tools.insert(tool.name().to_string(), tool);
-        self
+    /// Creates a new Toolset with the given ApplicationContext
+    pub fn new(context: Arc<riglr_core::provider::ApplicationContext>) -> Self {
+        Self { context }
     }
 
-    /// "Discovers" and adds all available tools from the `riglr-solana-tools` crate.
-    /// This method is only available when the `solana-tools` feature is enabled.
-    #[cfg(feature = "solana-tools")]
-    pub fn with_solana_tools(self) -> Self {
-        self.add_tool(riglr_solana_tools::balance::get_sol_balance_tool())
-            .add_tool(riglr_solana_tools::transaction::transfer_sol_tool())
-    }
-
-    /// Registers all tools in this set with a `rig::AgentBuilder`.
-    /// This now wraps each tool in the `RigToolAdapter` to ensure compatibility.
+    /// Registers tools with a `rig::AgentBuilder`.
+    ///
+    /// Since we can't store heterogeneous tool types, tools must be added
+    /// directly to the builder. This method exists to provide a place to
+    /// configure which tools are available.
     pub(crate) fn register_with_brain<M: rig::completion::CompletionModel>(
-        &self,
+        self,
         mut builder: rig::agent::AgentBuilder<M>,
-        context: &riglr_core::provider::ApplicationContext,
     ) -> rig::agent::AgentBuilder<M> {
-        for tool in self.tools.values() {
-            // Wrap our internal tool in the adapter with the context
-            let adapted_tool = RigToolAdapter::new(tool.clone(), context.clone());
-            builder = builder.tool(adapted_tool);
+        // Add Solana tools if the feature is enabled
+        #[cfg(feature = "solana-tools")]
+        {
+            builder = builder
+                .tool(riglr_solana_tools::balance::get_sol_balance_tool(
+                    self.context.clone(),
+                ))
+                .tool(riglr_solana_tools::transaction::transfer_sol_tool(
+                    self.context.clone(),
+                ));
         }
-        builder
-    }
 
-    /// Registers all tools in this set with a `ToolWorker`.
-    pub(crate) async fn register_with_worker<S: IdempotencyStore + 'static>(
-        &self,
-        worker: &ToolWorker<S>,
-    ) {
-        for tool in self.tools.values() {
-            worker.register_tool(tool.clone()).await;
+        // Add EVM tools if the feature is enabled
+        #[cfg(feature = "riglr-evm-tools")]
+        {
+            // TODO: Add EVM tools when they're updated
         }
+
+        builder
     }
 }

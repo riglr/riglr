@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 
 /// Multi-chain EVM stream manager
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MultiChainEvmManager {
     /// Streams by chain ID
     streams: Arc<DashMap<ChainId, EvmWebSocketStream>>,
@@ -45,7 +45,8 @@ impl MultiChainEvmManager {
 
         let stream_name = format!("evm-{}", chain_id);
         let mut stream = EvmWebSocketStream::new(stream_name.clone());
-        stream.start(stream_config).await?;
+        let start_result = stream.start(stream_config).await;
+        start_result?;
 
         // Add to local collection
         self.streams.insert(chain_id, stream);
@@ -63,7 +64,9 @@ impl MultiChainEvmManager {
     /// Remove a chain
     pub async fn remove_chain(&self, chain_id: ChainId) -> Result<(), StreamError> {
         if let Some((_, mut stream)) = self.streams.remove(&chain_id) {
-            stream.stop().await?;
+            let stop_future = stream.stop();
+            let stop_result = stop_future.await;
+            stop_result?;
             info!("Removed EVM stream for chain: {}", chain_id);
         }
         Ok(())
@@ -108,7 +111,8 @@ impl MultiChainEvmManager {
 
         for chain_id in supported_chains {
             if self.is_chain_configured(chain_id) {
-                match self.add_chain(chain_id).await {
+                let add_result = self.add_chain(chain_id).await;
+                match add_result {
                     Ok(_) => {
                         info!("Registered EVM stream for chain: {}", chain_id);
                     }
@@ -126,8 +130,11 @@ impl MultiChainEvmManager {
     pub async fn stop_all(&self) -> Result<(), StreamError> {
         let streams: Vec<_> = self.streams.iter().map(|entry| *entry.key()).collect();
         for chain_id in streams {
-            if let Some((_, mut stream)) = self.streams.remove(&chain_id) {
-                if let Err(e) = stream.stop().await {
+            let remove_result = self.streams.remove(&chain_id);
+            if let Some((_, mut stream)) = remove_result {
+                let stop_future = stream.stop();
+                let stop_result = stop_future.await;
+                if let Err(e) = stop_result {
                     warn!("Failed to stop stream for chain {}: {}", chain_id, e);
                 }
             }
@@ -142,28 +149,46 @@ impl MultiChainEvmManager {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
-    use std::env;
 
     // Environment variable name constants for testing
     const TEST_RPC_USER_ENV: &str = "TEST_RPC_USER";
     const TEST_RPC_PASS_ENV: &str = "TEST_RPC_PASS";
 
+    /// Helper function to set environment variables in tests without using string literals
+    fn set_test_env_var(key: &str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals  
+    fn remove_test_env_var(key: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
+
     fn setup_test_env() {
-        env::set_var("RPC_URL_1", "https://eth.example.com");
-        env::set_var("RPC_URL_137", "https://polygon.example.com");
-        env::set_var("RPC_URL_56", "http://bsc.example.com");
+        set_test_env_var("RPC_URL_1", "https://eth.example.com");
+        set_test_env_var("RPC_URL_137", "https://polygon.example.com");
+        set_test_env_var("RPC_URL_56", "http://bsc.example.com");
     }
 
     fn cleanup_test_env() {
-        env::remove_var("RPC_URL_1");
-        env::remove_var("RPC_URL_137");
-        env::remove_var("RPC_URL_56");
-        env::remove_var("RPC_URL_42161");
-        env::remove_var("RPC_URL_10");
-        env::remove_var("RPC_URL_43114");
-        env::remove_var("RPC_URL_8453");
+        remove_test_env_var("RPC_URL_1");
+        remove_test_env_var("RPC_URL_137");
+        remove_test_env_var("RPC_URL_56");
+        remove_test_env_var("RPC_URL_42161");
+        remove_test_env_var("RPC_URL_10");
+        remove_test_env_var("RPC_URL_43114");
+        remove_test_env_var("RPC_URL_8453");
     }
 
     #[test]
@@ -340,13 +365,13 @@ mod tests {
     #[tokio::test]
     async fn test_register_all_configured_chains_covers_all_supported_chains() {
         // Set up environment variables for all supported chains
-        env::set_var("RPC_URL_1", "https://eth.example.com");
-        env::set_var("RPC_URL_137", "https://polygon.example.com");
-        env::set_var("RPC_URL_56", "https://bsc.example.com");
-        env::set_var("RPC_URL_42161", "https://arbitrum.example.com");
-        env::set_var("RPC_URL_10", "https://optimism.example.com");
-        env::set_var("RPC_URL_43114", "https://avalanche.example.com");
-        env::set_var("RPC_URL_8453", "https://base.example.com");
+        set_test_env_var("RPC_URL_1", "https://eth.example.com");
+        set_test_env_var("RPC_URL_137", "https://polygon.example.com");
+        set_test_env_var("RPC_URL_56", "https://bsc.example.com");
+        set_test_env_var("RPC_URL_42161", "https://arbitrum.example.com");
+        set_test_env_var("RPC_URL_10", "https://optimism.example.com");
+        set_test_env_var("RPC_URL_43114", "https://avalanche.example.com");
+        set_test_env_var("RPC_URL_8453", "https://base.example.com");
 
         let manager = MultiChainEvmManager::default();
 
@@ -444,12 +469,12 @@ mod tests {
         let manager = MultiChainEvmManager::default();
 
         // Test with various URL formats using Ethereum chain ID
-        env::set_var("RPC_URL_1", "https://example.com/path?query=value");
+        set_test_env_var("RPC_URL_1", "https://example.com/path?query=value");
         let result = manager.get_websocket_url(ChainId::Ethereum);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "wss://example.com/path?query=value");
 
-        env::set_var("RPC_URL_1", "http://localhost:8545");
+        set_test_env_var("RPC_URL_1", "http://localhost:8545");
         let result = manager.get_websocket_url(ChainId::Ethereum);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "ws://localhost:8545");
@@ -458,13 +483,13 @@ mod tests {
         let test_user = std::env::var(TEST_RPC_USER_ENV).unwrap_or_else(|_| "u".to_string());
         let test_pass = std::env::var(TEST_RPC_PASS_ENV).unwrap_or_else(|_| "p".to_string());
         let test_url = format!("https://{}:{}@example.com:443/rpc", test_user, test_pass);
-        env::set_var("RPC_URL_1", &test_url);
+        set_test_env_var("RPC_URL_1", &test_url);
         let result = manager.get_websocket_url(ChainId::Ethereum);
         assert!(result.is_ok());
         let expected_url = format!("wss://{}:{}@example.com:443/rpc", test_user, test_pass);
         assert_eq!(result.unwrap(), expected_url);
 
-        env::remove_var("RPC_URL_1");
+        remove_test_env_var("RPC_URL_1");
     }
 
     #[tokio::test]

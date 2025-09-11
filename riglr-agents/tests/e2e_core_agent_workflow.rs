@@ -49,7 +49,11 @@ async fn test_1_1_basic_read_only_tool_execution() -> Result<()> {
         ExecutionConfig::default(),
         app_context.clone(),
     ));
-    tool_worker.register_tool(get_sol_balance_tool()).await;
+    tool_worker
+        .register_tool(Arc::new(get_sol_balance_tool(Arc::new(
+            app_context.clone(),
+        ))))
+        .await;
 
     // Test: Query balance of a known Devnet address
     let test_address = "11111111111111111111111111111111"; // System Program
@@ -117,7 +121,9 @@ async fn test_1_2_secure_transaction_execution() -> Result<()> {
         ExecutionConfig::default(),
         app_context.clone(),
     ));
-    tool_worker.register_tool(transfer_sol_tool()).await;
+    tool_worker
+        .register_tool(Arc::new(transfer_sol_tool(Arc::new(app_context.clone()))))
+        .await;
 
     // Generate a random recipient address
     let recipient = Keypair::new();
@@ -215,7 +221,11 @@ async fn test_1_3_multi_tool_multi_chain_execution() -> Result<()> {
         ExecutionConfig::default(),
         app_context.clone(),
     ));
-    tool_worker.register_tool(get_sol_balance_tool()).await;
+    tool_worker
+        .register_tool(Arc::new(get_sol_balance_tool(Arc::new(
+            app_context.clone(),
+        ))))
+        .await;
     // Additional tools would be registered here
 
     // Test multi-tool execution

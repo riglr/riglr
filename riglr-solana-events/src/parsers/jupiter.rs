@@ -428,6 +428,7 @@ impl ByteSliceEventParser for JupiterParser {
 }
 
 /// Factory for creating Jupiter parsers
+#[derive(Debug)]
 pub struct JupiterParserFactory;
 
 impl JupiterParserFactory {

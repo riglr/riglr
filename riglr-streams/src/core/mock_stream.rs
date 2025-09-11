@@ -40,6 +40,7 @@ impl Default for MockConfig {
 }
 
 /// Mock stream that generates protocol-specific events for testing
+#[derive(Debug)]
 pub struct MockStream {
     config: MockConfig,
     event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
@@ -78,7 +79,8 @@ impl MockStream {
             let mut events_generated = 0;
 
             while running.load(Ordering::Relaxed) {
-                ticker.tick().await;
+                let tick_result = ticker.tick().await;
+                let _ = tick_result;
 
                 // Check if we've reached max events
                 if let Some(max) = config.max_events {
@@ -89,11 +91,14 @@ impl MockStream {
                 }
 
                 // Generate a random event from configured event kinds
-                if let Some(event) = Self::generate_mock_event(&config.event_kinds, sequence_number)
-                {
+                let generated_event =
+                    Self::generate_mock_event(&config.event_kinds, sequence_number);
+                if let Some(event) = generated_event {
                     // Send the event
-                    if let Err(e) = event_tx.send(Arc::new(event)) {
-                        eprintln!("Failed to send mock event: {}", e);
+                    let event_arc = Arc::new(event);
+                    let send_result = event_tx.send(event_arc);
+                    if let Err(e) = send_result {
+                        eprintln!("Failed to send mock event: {e}");
                         break;
                     }
 
@@ -110,8 +115,7 @@ impl MockStream {
             }
 
             println!(
-                "Mock stream '{}' stopped after generating {} events",
-                stream_name, events_generated
+                "Mock stream '{stream_name}' stopped after generating {events_generated} events"
             );
         });
 
@@ -123,6 +127,10 @@ impl MockStream {
         event_kinds: &[EventKind],
         sequence_number: u64,
     ) -> Option<DynamicStreamedEvent> {
+        if event_kinds.is_empty() {
+            return None;
+        }
+
         use rand::Rng;
         let mut rng = rand::rng();
         let event_kind = event_kinds.get(rng.random_range(0..event_kinds.len()))?;
@@ -135,7 +143,7 @@ impl MockStream {
         };
 
         let event: Box<dyn Event> = Box::new(MockEvent::new(
-            format!("mock-{:?}-{}", event_kind, sequence_number),
+            format!("mock-{event_kind:?}-{sequence_number}"),
             event_kind.clone(),
         ));
 
@@ -165,7 +173,8 @@ impl Stream for MockStream {
         }
 
         // Start generating events
-        self.start_event_generation().await?;
+        let generation_result = self.start_event_generation().await;
+        generation_result?;
 
         Ok(())
     }
@@ -191,8 +200,7 @@ impl Stream for MockStream {
     }
 
     async fn health(&self) -> StreamHealth {
-        let health = self.health.read().await;
-        health.clone()
+        self.health.read().await.clone()
     }
 
     fn name(&self) -> &str {

@@ -377,6 +377,7 @@ impl ByteSliceEventParser for RaydiumV4Parser {
 }
 
 /// Factory for creating Raydium V4 parsers
+#[derive(Debug)]
 pub struct RaydiumV4ParserFactory;
 
 impl RaydiumV4ParserFactory {

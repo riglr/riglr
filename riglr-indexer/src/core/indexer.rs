@@ -31,6 +31,27 @@ pub struct IndexerService {
     health_task: Option<tokio::task::JoinHandle<()>>,
 }
 
+impl std::fmt::Debug for IndexerService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IndexerService")
+            .field("context", &self.context)
+            .field(
+                "ingester",
+                &self.ingester.as_ref().map(|_| "EventIngester { ... }"),
+            )
+            .field(
+                "processor",
+                &self.processor.as_ref().map(|_| "EventProcessor { ... }"),
+            )
+            .field("stats", &self.stats)
+            .field(
+                "health_task",
+                &self.health_task.as_ref().map(|_| "JoinHandle { ... }"),
+            )
+            .finish()
+    }
+}
+
 impl IndexerService {
     /// Create a new indexer service
     pub async fn new(config: IndexerConfig) -> IndexerResult<Self> {
@@ -165,14 +186,16 @@ impl IndexerService {
                             if !events.is_empty() {
                                 // Update stats
                                 {
+                                    let queue_depth_result = ingester.queue_depth().await;
                                     let mut stats = self.stats.write().await;
                                     stats.total_processed += events.len() as u64;
-                                    stats.queue_depth = ingester.queue_depth().await;
+                                    stats.queue_depth = queue_depth_result;
                                 }
 
                                 // Process events
                                 let start_time = std::time::Instant::now();
-                                match processor.process_batch(events).await {
+                                let batch_process_result = processor.process_batch(events).await;
+                                match batch_process_result {
                                     Ok(_) => {
                                         let latency = start_time.elapsed().as_millis() as f64;
                                         self.context.metrics.record_histogram(
@@ -185,10 +208,11 @@ impl IndexerService {
                                         self.context.metrics.increment_counter("indexer_processing_errors");
 
                                         // Update component health
-                                        self.context.update_component_health(
+                                        let health_update_result = self.context.update_component_health(
                                             "processor",
                                             ComponentHealth::unhealthy(&format!("Processing error: {}", e)),
                                         ).await;
+                                        let _ = health_update_result;
                                     }
                                 }
                             }
@@ -198,10 +222,11 @@ impl IndexerService {
                             self.context.metrics.increment_counter("indexer_ingestion_errors");
 
                             // Update component health
-                            self.context.update_component_health(
+                            let health_update_result = self.context.update_component_health(
                                 "ingester",
                                 ComponentHealth::unhealthy(&format!("Ingestion error: {}", e)),
                             ).await;
+                            let _ = health_update_result;
                         }
                     }
                 }
@@ -219,7 +244,7 @@ impl IndexerService {
     }
 
     /// Calculate processing statistics
-    #[allow(dead_code)]
+    #[allow(dead_code, unsafe_code)]
     async fn update_processing_stats(&self) {
         let mut stats = self.stats.write().await;
 
@@ -228,8 +253,11 @@ impl IndexerService {
         static mut LAST_UPDATE: Option<std::time::Instant> = None;
         static mut LAST_COUNT: u64 = 0;
 
+        // SAFETY: Access to mutable statics for performance tracking is protected by function-level synchronization.
+        // This method is called by single-threaded contexts or with appropriate synchronization at caller level.
         unsafe {
-            if let Some(last_time) = LAST_UPDATE {
+            let last_update = LAST_UPDATE;
+            if let Some(last_time) = last_update {
                 let elapsed = now.duration_since(last_time).as_secs_f64();
                 if elapsed > 0.0 {
                     let events_delta = stats.total_processed.saturating_sub(LAST_COUNT);
@@ -367,7 +395,8 @@ impl ServiceLifecycle for IndexerService {
 
         // Stop processor first to finish processing current events
         if let Some(processor) = &mut self.processor {
-            if let Err(e) = processor.stop().await {
+            let stop_result = processor.stop().await;
+            if let Err(e) = stop_result {
                 error!("Error stopping processor: {}", e);
             } else {
                 info!("Processor stopped successfully");
@@ -376,7 +405,8 @@ impl ServiceLifecycle for IndexerService {
 
         // Stop ingester
         if let Some(ingester) = &mut self.ingester {
-            if let Err(e) = ingester.stop().await {
+            let stop_result = ingester.stop().await;
+            if let Err(e) = stop_result {
                 error!("Error stopping ingester: {}", e);
             } else {
                 info!("Ingester stopped successfully");
@@ -402,7 +432,8 @@ impl ServiceLifecycle for IndexerService {
     }
 
     async fn health(&self) -> IndexerResult<HealthStatus> {
-        self.context.health_check().await
+        let health_check_result = self.context.health_check().await;
+        health_check_result
     }
 
     fn is_running(&self) -> bool {
@@ -420,7 +451,8 @@ impl EventProcessing for IndexerService {
             .as_ref()
             .ok_or_else(|| IndexerError::internal("Processor not initialized"))?;
 
-        processor.process_event(event).await
+        let process_result = processor.process_event(event).await;
+        process_result
     }
 
     async fn process_batch(&self, events: Vec<Box<dyn Event>>) -> IndexerResult<()> {
@@ -429,11 +461,13 @@ impl EventProcessing for IndexerService {
             .as_ref()
             .ok_or_else(|| IndexerError::internal("Processor not initialized"))?;
 
-        processor.process_batch(events).await
+        let batch_result = processor.process_batch(events).await;
+        batch_result
     }
 
     async fn processing_stats(&self) -> ProcessingStats {
-        self.stats.read().await.clone()
+        let stats = self.stats.read().await;
+        stats.clone()
     }
 }
 

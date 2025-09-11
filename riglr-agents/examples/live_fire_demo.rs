@@ -45,6 +45,7 @@ const GEMINI_API_KEY: &str = "GEMINI_API_KEY";
 const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
 
 #[tokio::main]
+#[allow(unsafe_code)] // Example code uses unsafe std::env operations for Rust 2024 compatibility with proper inline SAFETY documentation
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // --- 1. SETUP & LOAD SECRETS ---
     dotenvy::from_filename(".env.test").expect("Failed to load .env.test file.");
@@ -71,7 +72,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // --- 2. BUILD THE AGENT SYSTEM (THE CLEAN WAY) ---
     // Set dummy ANTHROPIC_API_KEY if not set for ApplicationContext
     if std::env::var(ANTHROPIC_API_KEY).is_err() {
-        std::env::set_var(ANTHROPIC_API_KEY, "dummy-key-for-testing");
+        // SAFETY: Setting environment variables in examples is safe in controlled execution environment
+        unsafe {
+            std::env::set_var(ANTHROPIC_API_KEY, "dummy-key-for-testing");
+        }
     }
 
     let config = riglr_core::Config::from_env();
@@ -87,17 +91,15 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         devnet_rpc,
     )));
 
-    // 1. Discover all available tools with one line.
-    let toolset = Toolset::default().with_solana_tools();
+    // 1. Discover all available tools with the application context.
+    let toolset = Toolset::new(Arc::new(app_context));
 
     // 2. Build the entire agent with one clean, fluent call.
-    // This handles creating the ToolWorker, the rig::Agent, and registering tools everywhere.
+    // This handles creating the rig::Agent and registering tools.
     let gemini_client = rig::providers::gemini::Client::new(&gemini_api_key);
     let model = gemini_client.completion_model("gemini-1.5-flash");
     let debuggable_model = DebuggableCompletionModel::new(model);
-    let live_agent = ToolCallingAgentBuilder::new(toolset, app_context)
-        .build(debuggable_model)
-        .await?;
+    let live_agent = ToolCallingAgentBuilder::new(toolset).build(debuggable_model)?;
 
     // --- 3. RUN THE DEMO ---
     let solana_signer =

@@ -55,6 +55,33 @@ pub struct StreamManager {
     metrics_collector: Arc<MetricsCollector>,
 }
 
+impl std::fmt::Debug for StreamManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StreamManager")
+            .field("streams", &format!("{} streams", self.streams.len()))
+            .field(
+                "running_streams",
+                &format!("{} running streams", self.running_streams.len()),
+            )
+            .field(
+                "event_handlers",
+                &format!(
+                    "{} event handlers",
+                    self.event_handlers
+                        .try_read()
+                        .map_or(0, |handlers| handlers.len())
+                ),
+            )
+            .field("global_event_tx", &self.global_event_tx)
+            .field("shutdown_tx", &self.shutdown_tx)
+            .field("state", &self.state)
+            .field("execution_mode", &self.execution_mode)
+            .field("handler_semaphore", &self.handler_semaphore)
+            .field("metrics_collector", &self.metrics_collector)
+            .finish()
+    }
+}
+
 /// Represents the current state of the StreamManager
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManagerState {
@@ -179,7 +206,8 @@ impl StreamManager {
     /// Remove a stream
     pub async fn remove_stream(&self, name: &str) -> StreamResult<()> {
         // Stop the stream if it's running
-        self.stop_stream(name).await?;
+        let stop_result = self.stop_stream(name).await;
+        stop_result?;
 
         self.streams.remove(name);
 
@@ -210,7 +238,8 @@ impl StreamManager {
         }
 
         info!("Starting stream: {}", name);
-        stream.start_dynamic().await?;
+        let start_result = stream.start_dynamic().await;
+        start_result?;
 
         // Only spawn forwarding task if we have event handlers or not in test mode
         #[cfg(not(test))]
@@ -264,7 +293,8 @@ impl StreamManager {
         }
 
         info!("Stopping stream: {}", name);
-        stream.stop_dynamic().await?;
+        let stop_result = stream.stop_dynamic().await;
+        stop_result?;
 
         // Cancel the forwarding task
         if let Some((_, handle)) = self.running_streams.remove(name) {
@@ -297,7 +327,8 @@ impl StreamManager {
 
         let mut errors = Vec::default();
         for name in stream_names {
-            if let Err(e) = self.start_stream(&name).await {
+            let start_result = self.start_stream(&name).await;
+            if let Err(e) = start_result {
                 error!("Failed to start stream {}: {}", name, e);
                 errors.push((name, e));
             }
@@ -349,7 +380,8 @@ impl StreamManager {
             .collect();
 
         for name in stream_names {
-            if let Err(e) = self.stop_stream(&name).await {
+            let stop_result = self.stop_stream(&name).await;
+            if let Err(e) = stop_result {
                 error!("Failed to stop stream {}: {}", name, e);
             }
         }
@@ -362,7 +394,8 @@ impl StreamManager {
             .collect();
 
         for name in running_keys {
-            if let Some((_, handle)) = self.running_streams.remove(&name) {
+            let removal_result = self.running_streams.remove(&name);
+            if let Some((_, handle)) = removal_result {
                 debug!("Waiting for stream {} to stop", name);
                 handle.abort();
             }
@@ -461,9 +494,10 @@ impl StreamManager {
             .collect();
 
         for name in stream_names {
-            if let Some(stream_ref) = self.streams.get(&name) {
-                let health = stream_ref.value().health_dynamic().await;
-                health_map.insert(name, health);
+            let stream_get_result = self.streams.get(&name);
+            if let Some(stream_ref) = stream_get_result {
+                let health_result = stream_ref.value().health_dynamic().await;
+                health_map.insert(name, health_result);
             }
         }
 
@@ -480,7 +514,8 @@ impl StreamManager {
 
     /// Check if a stream is running
     pub async fn is_stream_running(&self, name: &str) -> bool {
-        if let Some(stream) = self.streams.get(name) {
+        let stream_lookup = self.streams.get(name);
+        if let Some(stream) = stream_lookup {
             stream.value().is_running_dynamic()
         } else {
             false
@@ -489,7 +524,8 @@ impl StreamManager {
 
     /// Get manager state
     pub async fn state(&self) -> ManagerState {
-        *self.state.lock().await
+        let state_guard = self.state.lock().await;
+        *state_guard
     }
 
     /// Forward events from a stream to the global channel
@@ -602,10 +638,10 @@ impl StreamManager {
                         metrics.clone(),
                     );
 
-                    let result = handler.handle(event.clone()).await;
-                    let success = result.is_ok();
+                    let handle_result = handler.handle(event.clone()).await;
+                    let success = handle_result.is_ok();
 
-                    if let Err(e) = result {
+                    if let Err(e) = handle_result {
                         error!("Handler {} failed: {}", handler_name, e);
                     }
 
@@ -628,10 +664,10 @@ impl StreamManager {
                             metrics,
                         );
 
-                        let result = handler.handle(event).await;
-                        let success = result.is_ok();
+                        let handle_result = handler.handle(event).await;
+                        let success = handle_result.is_ok();
 
-                        if let Err(e) = result {
+                        if let Err(e) = handle_result {
                             error!("Handler {} failed: {}", handler_name, e);
                         }
 
@@ -641,7 +677,8 @@ impl StreamManager {
 
                 // Wait for all handlers to complete
                 for task in tasks {
-                    if let Err(e) = task.await {
+                    let task_result = task.await;
+                    if let Err(e) = task_result {
                         error!("Handler task failed: {}", e);
                     }
                 }
@@ -670,10 +707,10 @@ impl StreamManager {
                             metrics,
                         );
 
-                        let result = handler.handle(event).await;
-                        let success = result.is_ok();
+                        let handle_result = handler.handle(event).await;
+                        let success = handle_result.is_ok();
 
-                        if let Err(e) = result {
+                        if let Err(e) = handle_result {
                             error!("Handler {} failed: {}", handler_name, e);
                         }
 
@@ -683,7 +720,8 @@ impl StreamManager {
 
                 // Wait for all handlers to complete
                 for task in tasks {
-                    if let Err(e) = task.await {
+                    let task_result = task.await;
+                    if let Err(e) = task_result {
                         error!("Handler task failed: {}", e);
                     }
                 }
@@ -720,6 +758,7 @@ impl Default for StreamManager {
 }
 
 /// Simple event handler for testing
+#[derive(Debug)]
 pub struct LoggingEventHandler {
     name: String,
 }
@@ -1585,6 +1624,9 @@ mod tests {
         let handler1 = Arc::new(MockEventHandler::new("handler1"));
         let handler2 = Arc::new(MockEventHandler::new("handler2"));
 
+        handler1.set_should_handle(true);
+        handler2.set_should_handle(true);
+
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
 
@@ -1603,6 +1645,9 @@ mod tests {
         let manager = StreamManager::with_execution_mode(HandlerExecutionMode::Concurrent);
         let handler1 = Arc::new(MockEventHandler::new("handler1"));
         let handler2 = Arc::new(MockEventHandler::new("handler2"));
+
+        handler1.set_should_handle(true);
+        handler2.set_should_handle(true);
 
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
@@ -1623,6 +1668,9 @@ mod tests {
             StreamManager::with_execution_mode(HandlerExecutionMode::ConcurrentBounded(2));
         let handler1 = Arc::new(MockEventHandler::new("handler1"));
         let handler2 = Arc::new(MockEventHandler::new("handler2"));
+
+        handler1.set_should_handle(true);
+        handler2.set_should_handle(true);
 
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
@@ -1658,6 +1706,7 @@ mod tests {
     async fn test_handle_event_handler_failure() {
         let manager = StreamManager::default();
         let handler = Arc::new(MockEventHandler::new("handler"));
+        handler.set_should_handle(true);
         handler.set_should_fail(true);
 
         manager.add_event_handler(handler.clone()).await;

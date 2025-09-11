@@ -177,6 +177,7 @@ pub trait AlertHandler: Send + Sync {
 }
 
 /// Console alert handler
+#[derive(Debug)]
 pub struct ConsoleAlertHandler;
 
 impl AlertHandler for ConsoleAlertHandler {
@@ -206,6 +207,7 @@ impl AlertHandler for ConsoleAlertHandler {
 }
 
 /// Webhook alert handler (for external integrations)
+#[derive(Debug)]
 pub struct WebhookAlertHandler {
     webhook_url: String,
 }
@@ -267,7 +269,8 @@ impl AlertSystem {
 
         // Send alert to all handlers
         for handler in &self.alert_handlers {
-            if let Err(e) = handler.handle_alert(&alert) {
+            let alert_result = handler.handle_alert(&alert);
+            if let Err(e) = alert_result {
                 warn!("Failed to send alert through handler: {}", e);
             }
         }
@@ -276,6 +279,19 @@ impl AlertSystem {
         self.last_alerts.insert(alert_key, alert.timestamp);
 
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for AlertSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AlertSystem")
+            .field(
+                "alert_handlers",
+                &format!("[{} handlers]", self.alert_handlers.len()),
+            )
+            .field("last_alerts", &self.last_alerts)
+            .field("config", &self.config)
+            .finish()
     }
 }
 
@@ -715,6 +731,19 @@ impl YieldMonitor {
     }
 }
 
+impl std::fmt::Debug for YieldMonitor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("YieldMonitor")
+            .field("protocols", &self.protocols)
+            .field("opportunities", &self.opportunities)
+            .field("price_history", &"<WindowManager>")
+            .field("alert_system", &self.alert_system)
+            .field("metrics", &self.metrics)
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 struct PoolEventData {
     protocol_name: String,
@@ -738,13 +767,14 @@ async fn main() -> Result<()> {
     info!("🌾 Starting DeFi Yield Farming Monitor");
 
     // Build StreamManager using StreamManagerBuilder for yield monitoring
-    let stream_manager = StreamManagerBuilder::default()
+    let stream_manager_builder = StreamManagerBuilder::default()
         .with_execution_mode(HandlerExecutionMode::Concurrent)
         .with_metrics(true)
         .from_env()
         .map_err(|e| anyhow::anyhow!("Failed to load stream config: {}", e))?
-        .build()
-        .await
+        .build();
+    let stream_manager_result = stream_manager_builder.await;
+    let stream_manager = stream_manager_result
         .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
 
     info!("✅ StreamManager initialized for yield monitoring");
@@ -835,7 +865,8 @@ async fn main() -> Result<()> {
                 let protocol = protocols[fastrand::usize(0..protocols.len())];
 
                 let pool_event = create_simulated_pool_event(protocol);
-                if let Err(e) = yield_monitor.process_pool_event(&*pool_event).await {
+                let process_result = yield_monitor.process_pool_event(&*pool_event).await;
+                if let Err(e) = process_result {
                     warn!("Failed to process pool event: {}", e);
                 }
             }
@@ -845,7 +876,8 @@ async fn main() -> Result<()> {
                 let tokens = ["SOL", "USDC", "mSOL", "RAY", "ORCA"];
                 for token in &tokens {
                     let price_data = create_simulated_price_data(token);
-                    if let Err(e) = yield_monitor.process_price_event(price_data).await {
+                    let process_result = yield_monitor.process_price_event(price_data).await;
+                    if let Err(e) = process_result {
                         warn!("Failed to process price event: {}", e);
                     }
                 }

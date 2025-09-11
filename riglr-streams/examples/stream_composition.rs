@@ -544,6 +544,7 @@ async fn _write_to_database(data: Vec<RunningAverage>) {
     info!("Writing {} records to database", data.len());
 }
 
+#[allow(impl_trait_overcaptures)]
 fn create_price_stream(exchange: &str, pair: &str) -> impl Stream {
     // Would create actual price stream
     BinanceStream::new(format!("{}-{}", exchange, pair))

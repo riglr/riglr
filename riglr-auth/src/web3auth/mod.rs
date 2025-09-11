@@ -6,7 +6,8 @@ use crate::config::ProviderConfig;
 use crate::error::AuthError;
 use async_trait::async_trait;
 use riglr_core::signer::UnifiedSigner;
-use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+// use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+use crate::provider::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
 
 const WEB3AUTH_CLIENT_ID: &str = "WEB3AUTH_CLIENT_ID";
@@ -84,6 +85,7 @@ impl ProviderConfig for Web3AuthConfig {
 }
 
 /// Web3Auth provider implementation
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct Web3AuthProvider {
     config: Web3AuthConfig,
@@ -385,6 +387,7 @@ struct WalletInfo {
 }
 
 #[cfg(test)]
+#[allow(clippy::undocumented_unsafe_blocks, unsafe_code)] // Test module has proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use std::collections::HashMap;
@@ -465,10 +468,13 @@ mod tests {
     #[test]
     fn test_web3auth_config_from_env_when_missing_client_id_should_return_err() {
         // Clear environment variables
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
-        std::env::remove_var(WEB3AUTH_VERIFIER);
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -482,10 +488,13 @@ mod tests {
 
     #[test]
     fn test_web3auth_config_from_env_when_missing_verifier_should_return_err() {
-        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
-        std::env::remove_var(WEB3AUTH_VERIFIER);
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -497,15 +506,21 @@ mod tests {
         }
 
         // Cleanup
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        }
     }
 
     #[test]
     fn test_web3auth_config_from_env_when_required_vars_present_should_create_config() {
-        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
-        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+            std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -517,16 +532,22 @@ mod tests {
         assert_eq!(config.api_url, "https://api.openlogin.com"); // default
 
         // Cleanup
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
-        std::env::remove_var(WEB3AUTH_VERIFIER);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+        }
     }
 
     #[test]
     fn test_web3auth_config_from_env_when_all_vars_present_should_use_custom_values() {
-        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
-        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
-        std::env::set_var(WEB3AUTH_NETWORK, "testnet");
-        std::env::set_var(WEB3AUTH_API_URL, "https://custom.api.url");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+            std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+            std::env::set_var(WEB3AUTH_NETWORK, "testnet");
+            std::env::set_var(WEB3AUTH_API_URL, "https://custom.api.url");
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -538,18 +559,24 @@ mod tests {
         assert_eq!(config.api_url, "https://custom.api.url");
 
         // Cleanup
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
-        std::env::remove_var(WEB3AUTH_VERIFIER);
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
     }
 
     #[test]
     fn test_web3auth_config_from_env_when_empty_client_id_should_fail_validation() {
-        std::env::set_var(WEB3AUTH_CLIENT_ID, "");
-        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(WEB3AUTH_CLIENT_ID, "");
+            std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -561,16 +588,22 @@ mod tests {
         }
 
         // Cleanup
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
-        std::env::remove_var(WEB3AUTH_VERIFIER);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+        }
     }
 
     #[test]
     fn test_web3auth_config_from_env_when_empty_verifier_should_fail_validation() {
-        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
-        std::env::set_var(WEB3AUTH_VERIFIER, "");
-        std::env::remove_var(WEB3AUTH_NETWORK);
-        std::env::remove_var(WEB3AUTH_API_URL);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+            std::env::set_var(WEB3AUTH_VERIFIER, "");
+            std::env::remove_var(WEB3AUTH_NETWORK);
+            std::env::remove_var(WEB3AUTH_API_URL);
+        }
 
         let result = Web3AuthConfig::from_env();
 
@@ -582,8 +615,11 @@ mod tests {
         }
 
         // Cleanup
-        std::env::remove_var(WEB3AUTH_CLIENT_ID);
-        std::env::remove_var(WEB3AUTH_VERIFIER);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(WEB3AUTH_CLIENT_ID);
+            std::env::remove_var(WEB3AUTH_VERIFIER);
+        }
     }
 
     #[test]

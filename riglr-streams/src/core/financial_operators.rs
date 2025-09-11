@@ -13,6 +13,7 @@ use super::streamed_event::DynamicStreamedEvent;
 use crate::core::{Stream, StreamError, StreamHealth};
 
 /// Moving average calculator for financial streams
+#[derive(Debug)]
 pub struct MovingAverageStream<S> {
     inner: S,
     window_size: usize,
@@ -68,11 +69,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let result = self.inner.start(config).await;
+        result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let result = self.inner.stop().await;
+        result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -82,21 +85,27 @@ where
         let window_size = self.window_size;
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                // Extract value from event if it contains a price
-                // This is simplified - in production you'd parse the event properly
-                if let Ok(json) = event.inner().to_json() {
-                    if let Some(price) = json.get("price").and_then(|p| p.as_f64()) {
-                        let mut values_guard = values.write().await;
-                        values_guard.push_back(price);
-                        if values_guard.len() > window_size {
-                            values_guard.pop_front();
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    // Extract value from event if it contains a price
+                    // This is simplified - in production you'd parse the event properly
+                    let json_result = event.inner().to_json();
+                    if let Ok(json) = json_result {
+                        if let Some(price) = json.get("price").and_then(|p| p.as_f64()) {
+                            let mut values_guard = values.write().await;
+                            values_guard.push_back(price);
+                            if values_guard.len() > window_size {
+                                values_guard.pop_front();
+                            }
                         }
                     }
-                }
 
-                // Forward the original event
-                let _ = tx.send(event);
+                    // Forward the original event
+                    let _ = tx.send(event);
+                } else {
+                    break;
+                }
             }
         });
 
@@ -108,7 +117,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let result = self.inner.health().await;
+        result
     }
 
     fn name(&self) -> &str {
@@ -117,6 +127,7 @@ where
 }
 
 /// Volume-weighted average price (VWAP) stream
+#[derive(Debug)]
 pub struct VWAPStream<S> {
     inner: S,
     time_window: Duration,
@@ -187,11 +198,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let result = self.inner.start(config).await;
+        result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let result = self.inner.stop().await;
+        result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -201,26 +214,33 @@ where
         let time_window = self.time_window;
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                // Extract price and volume from event if available
-                if let Ok(json) = event.inner().to_json() {
-                    if let (Some(price), Some(volume)) = (
-                        json.get("price").and_then(|p| p.as_f64()),
-                        json.get("volume").and_then(|v| v.as_f64()),
-                    ) {
-                        let now = std::time::Instant::now();
-                        let mut pairs_guard = pairs.write().await;
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    // Extract price and volume from event if available
+                    let json_result = event.inner().to_json();
+                    if let Ok(json) = json_result {
+                        if let (Some(price), Some(volume)) = (
+                            json.get("price").and_then(|p| p.as_f64()),
+                            json.get("volume").and_then(|v| v.as_f64()),
+                        ) {
+                            let now = std::time::Instant::now();
+                            let mut pairs_guard = pairs.write().await;
 
-                        // Add new pair
-                        pairs_guard.push((price, volume, now));
+                            // Add new pair
+                            pairs_guard.push((price, volume, now));
 
-                        // Remove old pairs outside time window
-                        pairs_guard.retain(|(_, _, time)| now.duration_since(*time) <= time_window);
+                            // Remove old pairs outside time window
+                            pairs_guard
+                                .retain(|(_, _, time)| now.duration_since(*time) <= time_window);
+                        }
                     }
-                }
 
-                // Forward the original event
-                let _ = tx.send(event);
+                    // Forward the original event
+                    let _ = tx.send(event);
+                } else {
+                    break;
+                }
             }
         });
 
@@ -232,7 +252,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let result = self.inner.health().await;
+        result
     }
 
     fn name(&self) -> &str {

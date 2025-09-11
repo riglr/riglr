@@ -57,6 +57,21 @@ pub struct EventTriggeredTool<T: StreamingTool> {
     execution_count: Arc<RwLock<u64>>,
 }
 
+impl<T: StreamingTool> std::fmt::Debug for EventTriggeredTool<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventTriggeredTool")
+            .field("tool", &format!("Arc<{}>", std::any::type_name::<T>()))
+            .field(
+                "conditions",
+                &format!("[{} conditions]", self.conditions.len()),
+            )
+            .field("combinator", &self.combinator)
+            .field("name", &self.name)
+            .field("execution_count", &"Arc<RwLock<u64>>")
+            .finish()
+    }
+}
+
 impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
     /// Create a new event-triggered tool
     pub fn new(tool: T, name: impl Into<String>) -> Self {
@@ -177,6 +192,20 @@ pub struct EventTriggerBuilder<T: StreamingTool> {
     name: String,
     conditions: Vec<Box<dyn EventCondition>>,
     combinator: ConditionCombinator,
+}
+
+impl<T: StreamingTool> std::fmt::Debug for EventTriggerBuilder<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventTriggerBuilder")
+            .field("tool", &format!("{}", std::any::type_name::<T>()))
+            .field("name", &self.name)
+            .field(
+                "conditions",
+                &format!("[{} conditions]", self.conditions.len()),
+            )
+            .field("combinator", &self.combinator)
+            .finish()
+    }
 }
 
 impl<T: StreamingTool + 'static> EventTriggerBuilder<T> {

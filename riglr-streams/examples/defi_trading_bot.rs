@@ -34,7 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let trading_pipeline = build_trading_pipeline().await?;
 
     // Start monitoring
-    monitor_pipeline(trading_pipeline).await?;
+    let monitor_result = monitor_pipeline(trading_pipeline).await;
+    monitor_result?;
 
     Ok(())
 }
@@ -112,36 +113,52 @@ async fn monitor_pipeline(pipeline: TradingPipeline) -> Result<(), Box<dyn std::
 
     // Spawn monitoring tasks
     tokio::spawn(async move {
-        while let Ok(event) = execution_rx.recv().await {
-            // In the current batch implementation, events are sent individually
-            // Try to downcast to Transaction and process
-            if let Some(transaction) = event.inner().as_any().downcast_ref::<Transaction>() {
-                execute_trades(vec![transaction.clone()]).await;
+        loop {
+            let recv_result = execution_rx.recv().await;
+            if let Ok(event) = recv_result {
+                // In the current batch implementation, events are sent individually
+                // Try to downcast to Transaction and process
+                if let Some(transaction) = event.inner().as_any().downcast_ref::<Transaction>() {
+                    execute_trades(vec![transaction.clone()]).await;
+                }
+            } else {
+                break;
             }
         }
     });
 
     tokio::spawn(async move {
-        while let Ok(price_event) = price_rx.recv().await {
-            // In the current batch implementation, events are sent individually
-            // Try to downcast to PriceData and process
-            if let Some(price_data) = price_event.inner().as_any().downcast_ref::<PriceData>() {
-                update_dashboard(price_data.clone()).await;
+        loop {
+            let recv_result = price_rx.recv().await;
+            if let Ok(price_event) = recv_result {
+                // In the current batch implementation, events are sent individually
+                // Try to downcast to PriceData and process
+                if let Some(price_data) = price_event.inner().as_any().downcast_ref::<PriceData>() {
+                    update_dashboard(price_data.clone()).await;
+                }
+            } else {
+                break;
             }
         }
     });
 
     tokio::spawn(async move {
-        while let Ok(dex_event) = dex_rx.recv().await {
-            // Try to downcast to DexTrade and process
-            if let Some(dex_trade) = dex_event.inner().as_any().downcast_ref::<DexTrade>() {
-                log_dex_activity(dex_trade.clone()).await;
+        loop {
+            let recv_result = dex_rx.recv().await;
+            if let Ok(dex_event) = recv_result {
+                // Try to downcast to DexTrade and process
+                if let Some(dex_trade) = dex_event.inner().as_any().downcast_ref::<DexTrade>() {
+                    log_dex_activity(dex_trade.clone()).await;
+                }
+            } else {
+                break;
             }
         }
     });
 
     // Keep running
-    tokio::signal::ctrl_c().await?;
+    let ctrl_c_result = tokio::signal::ctrl_c().await;
+    ctrl_c_result?;
     info!("Shutting down trading bot");
 
     Ok(())
@@ -246,13 +263,16 @@ impl Event for Transaction {
         Box::new(self.clone())
     }
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        let deadline_secs = self
+            .deadline
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         Ok(serde_json::json!({
             "from": self.from,
             "amount": self.amount,
             "gas_price": self.gas_price,
-            "deadline": self.deadline.duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
+            "deadline": deadline_secs
         }))
     }
 }
@@ -420,13 +440,16 @@ impl Event for PriceData {
         Box::new(self.clone())
     }
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        let timestamp_secs = self
+            .timestamp
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         Ok(serde_json::json!({
             "symbol": self.symbol,
             "price": self.price,
             "volume": self.volume,
-            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
+            "timestamp": timestamp_secs
         }))
     }
 }
@@ -488,14 +511,17 @@ impl Event for DexTrade {
         Box::new(self.clone())
     }
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        let timestamp_secs = self
+            .timestamp
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         Ok(serde_json::json!({
             "pair": self.pair,
             "protocol": format!("{:?}", self.protocol),
             "price": self.price,
             "volume": self.volume,
-            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
+            "timestamp": timestamp_secs
         }))
     }
 }

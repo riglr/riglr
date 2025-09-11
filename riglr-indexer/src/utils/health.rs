@@ -8,7 +8,7 @@ use tracing::{debug, error, warn};
 
 /// Health check trait for services and components
 #[async_trait::async_trait]
-pub trait HealthCheck: Send + Sync {
+pub trait HealthCheck: Send + Sync + std::fmt::Debug {
     /// Perform a health check
     async fn health_check(
         &self,
@@ -70,6 +70,7 @@ impl HealthCheckResult {
 }
 
 /// Health check coordinator that manages multiple health checks
+#[derive(Debug)]
 pub struct HealthCheckCoordinator {
     /// Registered health checks
     checks: Arc<DashMap<String, Arc<dyn HealthCheck + 'static>>>,
@@ -120,7 +121,8 @@ impl HealthCheckCoordinator {
     /// Perform a specific health check
     pub async fn check_one(&self, name: &str) -> Option<HealthCheckResult> {
         let check = self.checks.get(name).map(|g| Arc::clone(g.value()))?;
-        Some(self.check_with_cache(name, &check).await)
+        let result = self.check_with_cache(name, &check).await;
+        Some(result)
     }
 
     /// Check if all components are healthy
@@ -171,12 +173,14 @@ impl HealthCheckCoordinator {
 
         // Perform actual check
         let start = Instant::now();
-        let mut result =
-            match tokio::time::timeout(Duration::from_secs(10), check.health_check()).await {
-                Ok(Ok(result)) => result,
-                Ok(Err(_)) => HealthCheckResult::unhealthy("Health check failed"),
-                Err(_) => HealthCheckResult::unhealthy("Health check timed out"),
-            };
+        let health_check_future = check.health_check();
+        let timeout_result =
+            tokio::time::timeout(Duration::from_secs(10), health_check_future).await;
+        let mut result = match timeout_result {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => HealthCheckResult::unhealthy("Health check failed"),
+            Err(_) => HealthCheckResult::unhealthy("Health check timed out"),
+        };
 
         result.response_time = start.elapsed();
         result.timestamp = Instant::now();
@@ -277,12 +281,22 @@ impl ConnectionHealthCheck {
     }
 }
 
+impl std::fmt::Debug for ConnectionHealthCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectionHealthCheck")
+            .field("name", &self.name)
+            .field("test_fn", &"<function>")
+            .finish()
+    }
+}
+
 #[async_trait::async_trait]
 impl HealthCheck for ConnectionHealthCheck {
     async fn health_check(
         &self,
     ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
-        match (self.test_fn)() {
+        let test_result = (self.test_fn)();
+        match test_result {
             Ok(()) => Ok(HealthCheckResult::healthy("Connection OK")),
             Err(e) => Ok(HealthCheckResult::unhealthy(&format!(
                 "Connection failed: {}",
@@ -297,6 +311,7 @@ impl HealthCheck for ConnectionHealthCheck {
 }
 
 /// HTTP endpoint health check
+#[derive(Debug)]
 pub struct HttpHealthCheck {
     name: String,
     url: String,
@@ -323,7 +338,9 @@ impl HealthCheck for HttpHealthCheck {
     ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
         let client = reqwest::Client::new();
 
-        match tokio::time::timeout(self.timeout, client.get(&self.url).send()).await {
+        let request_future = client.get(&self.url).send();
+        let request_result = tokio::time::timeout(self.timeout, request_future).await;
+        match request_result {
             Ok(Ok(response)) => {
                 let status = response.status().as_u16();
                 if status == self.expected_status {
@@ -352,6 +369,7 @@ impl HealthCheck for HttpHealthCheck {
 mod tests {
     use super::*;
 
+    #[derive(Debug)]
     struct AlwaysHealthyCheck {
         name: String,
     }
@@ -369,6 +387,7 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
     struct AlwaysUnhealthyCheck {
         name: String,
     }
@@ -739,6 +758,7 @@ mod tests {
         assert!(elapsed > Duration::from_millis(1));
     }
 
+    #[derive(Debug)]
     struct ErroringHealthCheck {
         name: String,
     }
@@ -773,6 +793,7 @@ mod tests {
         assert_eq!(result.message, "Health check failed");
     }
 
+    #[derive(Debug)]
     struct SlowHealthCheck {
         name: String,
         delay: Duration,

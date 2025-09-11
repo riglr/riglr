@@ -25,7 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 1: Raw API response
     println!("\n📊 Raw API Response:");
-    match check_rug_pull_raw(&context, token_address.to_string()).await {
+    let raw_response = check_rug_pull_raw(&context, token_address.to_string()).await;
+    match raw_response {
         Ok(response) => match response {
             RugApiResponse::NotProcessed { message } => {
                 println!("  Status: Not Processed");
@@ -49,7 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 2: Simplified rug check
     println!("\n🎯 Simplified Rug Check:");
-    match check_rug_pull(&context, token_address.to_string()).await {
+    let rug_check_result = check_rug_pull(&context, token_address.to_string()).await;
+    match rug_check_result {
         Ok(result) => {
             println!("  Processed: {}", result.is_processed);
             if result.is_processed {
@@ -72,7 +74,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 3: Detailed rug analysis
     println!("\n🔬 Detailed Rug Analysis:");
-    match analyze_rug_risk(&context, token_address.to_string()).await {
+    let analysis_result = analyze_rug_risk(&context, token_address.to_string()).await;
+    match analysis_result {
         Ok(analysis) => {
             println!("  Status: {:?}", analysis.status);
 
@@ -134,7 +137,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RiskTolerance::High,
     ] {
         println!("\n  Risk Tolerance: {:?}", tolerance);
-        match is_token_safe(&context, token_address.to_string(), Some(tolerance)).await {
+        let safety_result =
+            is_token_safe(&context, token_address.to_string(), Some(tolerance)).await;
+        match safety_result {
             Ok(safety) => {
                 println!("    Is Safe: {}", safety.is_safe);
                 println!("    Risk Level: {:?}", safety.risk_level);
@@ -150,7 +155,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📝 Testing with Wrapped SOL (should be safe):");
     let wsol = "So11111111111111111111111111111111111111112";
 
-    match check_rug_pull(&context, wsol.to_string()).await {
+    let wsol_check_result = check_rug_pull(&context, wsol.to_string()).await;
+    match wsol_check_result {
         Ok(result) => {
             println!("  Token: {}", wsol);
             println!("  Risk Level: {:?}", result.risk_level);

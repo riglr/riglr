@@ -359,14 +359,19 @@ impl LiFiClient {
         let response = request.send().await?;
 
         if !response.status().is_success() {
+            let status_code = response.status().as_u16();
+            let text_result = response.text().await;
+            let error_message = text_result.unwrap_or_default();
             return Err(LiFiError::ApiError {
-                code: response.status().as_u16(),
-                message: response.text().await.unwrap_or_default(),
+                code: status_code,
+                message: error_message,
             });
         }
 
-        let chains: HashMap<String, Chain> = response.json().await?;
-        Ok(chains.into_values().collect())
+        let json_result = response.json().await;
+        let chains: HashMap<String, Chain> = json_result?;
+        let chains_vec = chains.into_values().collect();
+        Ok(chains_vec)
     }
 
     /// Get cross-chain routes for a given request
@@ -405,15 +410,17 @@ impl LiFiClient {
         let response = http_request.send().await?;
 
         if !response.status().is_success() {
+            let status_code = response.status().as_u16();
+            let text_result = response.text().await;
+            let error_message = text_result.unwrap_or_default();
             return Err(LiFiError::ApiError {
-                code: response.status().as_u16(),
-                message: response.text().await.unwrap_or_default(),
+                code: status_code,
+                message: error_message,
             });
         }
 
-        let route_response: RouteResponse = response
-            .json()
-            .await
+        let json_result = response.json().await;
+        let route_response: RouteResponse = json_result
             .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse routes: {}", e)))?;
 
         Ok(route_response.routes)
@@ -437,15 +444,17 @@ impl LiFiClient {
         let response = request.send().await?;
 
         if !response.status().is_success() {
+            let status_code = response.status().as_u16();
+            let text_result = response.text().await;
+            let error_message = text_result.unwrap_or_default();
             return Err(LiFiError::ApiError {
-                code: response.status().as_u16(),
-                message: response.text().await.unwrap_or_default(),
+                code: status_code,
+                message: error_message,
             });
         }
 
-        let status: BridgeStatusResponse = response
-            .json()
-            .await
+        let json_result = response.json().await;
+        let status: BridgeStatusResponse = json_result
             .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse status: {}", e)))?;
 
         Ok(status)
@@ -461,7 +470,8 @@ impl LiFiClient {
 
         // For each route, fetch the transaction request data
         for route in &mut routes {
-            match self.get_transaction_request_for_route(&route.id).await {
+            let tx_result = self.get_transaction_request_for_route(&route.id).await;
+            match tx_result {
                 Ok(tx_request) => {
                     route.transaction_request = Some(tx_request);
                 }
@@ -496,30 +506,35 @@ impl LiFiClient {
         let response = request.send().await?;
 
         if !response.status().is_success() {
+            let status_code = response.status().as_u16();
+            let text_result = response.text().await;
+            let error_message = text_result.unwrap_or_default();
             return Err(LiFiError::ApiError {
-                code: response.status().as_u16(),
-                message: response.text().await.unwrap_or_default(),
+                code: status_code,
+                message: error_message,
             });
         }
 
-        let tx_data: serde_json::Value = response.json().await.map_err(|e| {
+        let json_result = response.json().await;
+        let tx_data: serde_json::Value = json_result.map_err(|e| {
             LiFiError::InvalidResponse(format!("Failed to parse transaction data: {}", e))
         })?;
 
         // Parse the transaction request from LiFi API response
         // Note: This is a simplified implementation - actual LiFi API response format may vary
-        let to = tx_data["to"]
+        let to_result = tx_data["to"]
             .as_str()
             .or_else(|| tx_data["programId"].as_str())
-            .unwrap_or_default()
-            .to_string();
-        let data = tx_data["data"].as_str().unwrap_or_default().to_string();
-        let value = tx_data["value"].as_str().unwrap_or("0").to_string();
-        let gas_limit = tx_data["gasLimit"].as_str().unwrap_or("200000").to_string();
-        let gas_price = tx_data["gasPrice"]
-            .as_str()
-            .unwrap_or("20000000000")
-            .to_string();
+            .unwrap_or_default();
+        let to = to_result.to_string();
+        let data_result = tx_data["data"].as_str().unwrap_or_default();
+        let data = data_result.to_string();
+        let value_result = tx_data["value"].as_str().unwrap_or("0");
+        let value = value_result.to_string();
+        let gas_limit_result = tx_data["gasLimit"].as_str().unwrap_or("200000");
+        let gas_limit = gas_limit_result.to_string();
+        let gas_price_result = tx_data["gasPrice"].as_str().unwrap_or("20000000000");
+        let gas_price = gas_price_result.to_string();
         let chain_id = tx_data["chainId"].as_u64().unwrap_or(1);
 
         // Attempt to parse Solana accounts if present
@@ -527,7 +542,8 @@ impl LiFiClient {
             if let Some(accounts) = tx_data.get("accounts").and_then(|a| a.as_array()) {
                 let mut metas: Vec<SolanaAccountMeta> = Vec::with_capacity(accounts.len());
                 for acc in accounts {
-                    let pubkey = acc["pubkey"].as_str().unwrap_or_default().to_string();
+                    let pubkey_result = acc["pubkey"].as_str().unwrap_or_default();
+                    let pubkey = pubkey_result.to_string();
                     let is_signer = acc["isSigner"].as_bool().unwrap_or(false);
                     let is_writable = acc["isWritable"].as_bool().unwrap_or(false);
                     if !pubkey.is_empty() {
@@ -1208,7 +1224,8 @@ mod tests {
             let result = client.prepare_bridge_execution(&route).await;
             assert!(result.is_err());
 
-            match result.unwrap_err() {
+            let error = result.unwrap_err();
+            match error {
                 LiFiError::Configuration(msg) => {
                     assert!(msg.contains("Invalid transaction request"));
                     assert!(msg.contains("missing to address or data"));
@@ -1268,7 +1285,8 @@ mod tests {
             let result = client.prepare_bridge_execution(&route).await;
             assert!(result.is_err());
 
-            match result.unwrap_err() {
+            let error = result.unwrap_err();
+            match error {
                 LiFiError::Configuration(msg) => {
                     assert!(msg.contains("Invalid transaction request"));
                     assert!(msg.contains("missing to address or data"));
@@ -1318,7 +1336,8 @@ mod tests {
             let result = client.prepare_bridge_execution(&route).await;
             assert!(result.is_err());
 
-            match result.unwrap_err() {
+            let error = result.unwrap_err();
+            match error {
                 LiFiError::Configuration(msg) => {
                     assert!(msg.contains("Route does not contain transaction request data"));
                     assert!(msg.contains("Use get_route_with_transaction() first"));

@@ -70,6 +70,7 @@ impl Default for TestConfig {
 
 // Test scenario helpers
 /// Helper struct providing predefined trading scenarios for tests.
+#[derive(Debug)]
 pub struct TradingScenarios;
 
 impl TradingScenarios {
@@ -120,6 +121,7 @@ impl TradingScenarios {
 
 // Test data generators
 /// Helper struct providing common test data generators.
+#[derive(Debug)]
 pub struct TestData;
 
 impl TestData {

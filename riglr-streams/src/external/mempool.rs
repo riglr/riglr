@@ -14,6 +14,7 @@ use chrono::Utc;
 use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
 
 /// Mempool.space WebSocket stream implementation
+#[derive(Debug)]
 pub struct MempoolSpaceStream {
     /// Stream configuration
     config: MempoolConfig,
@@ -263,7 +264,8 @@ impl Stream for MempoolSpaceStream {
         }
 
         // Start WebSocket connection
-        self.start_websocket().await?;
+        let websocket_result = self.start_websocket().await;
+        websocket_result?;
 
         Ok(())
     }
@@ -295,7 +297,8 @@ impl Stream for MempoolSpaceStream {
 
     async fn health(&self) -> StreamHealth {
         let health = self.health.read().await;
-        health.clone()
+        let health_clone = health.clone();
+        health_clone
     }
 
     fn name(&self) -> &str {
@@ -355,13 +358,20 @@ impl MempoolSpaceStream {
         let stream_name_clone = stream_name.clone();
         let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            while let Some(event) = internal_rx.recv().await {
-                if let Some(ref metrics) = metrics_clone {
-                    metrics
-                        .record_stream_event(&stream_name_clone, 0.0, 0)
-                        .await;
+            loop {
+                let recv_result = internal_rx.recv().await;
+                if let Some(event) = recv_result {
+                    if let Some(ref metrics) = metrics_clone {
+                        let record_result = metrics
+                            .record_stream_event(&stream_name_clone, 0.0, 0)
+                            .await;
+                        let _ = record_result;
+                    }
+                    let send_result = event_tx.send(event);
+                    let _ = send_result;
+                } else {
+                    break;
                 }
-                let _ = event_tx.send(event);
             }
         });
 
@@ -375,16 +385,15 @@ impl MempoolSpaceStream {
                 move || {
                     let url = url.clone();
                     Box::pin(async move {
-                        tokio_tungstenite::connect_async(&url)
-                            .await
-                            .map(|(ws, _)| ws)
-                            .map_err(|e| {
-                                Box::new(std::io::Error::new(
-                                    std::io::ErrorKind::ConnectionRefused,
-                                    format!("Failed to connect to Mempool.space: {}", e),
-                                ))
-                                    as Box<dyn std::error::Error + Send + Sync>
-                            })
+                        let connect_result = tokio_tungstenite::connect_async(&url).await;
+                        let mapped_result = connect_result.map(|(ws, _)| ws).map_err(|e| {
+                            Box::new(std::io::Error::new(
+                                std::io::ErrorKind::ConnectionRefused,
+                                format!("Failed to connect to Mempool.space: {}", e),
+                            ))
+                                as Box<dyn std::error::Error + Send + Sync>
+                        });
+                        mapped_result
                     })
                 },
                 |_write| {
@@ -401,7 +410,8 @@ impl MempoolSpaceStream {
             .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
             .build();
 
-            connector.run().await;
+            let run_result = connector.run().await;
+            run_result
         });
 
         Ok(())

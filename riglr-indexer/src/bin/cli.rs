@@ -139,6 +139,7 @@ enum MetricsCommands {
 }
 
 #[tokio::main]
+#[allow(unsafe_code)]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
@@ -359,7 +360,8 @@ async fn handle_health_command(
     let client = reqwest::Client::new();
     let health_url = format!("{}/api/v1/health", endpoint);
 
-    match client.get(&health_url).send().await {
+    let request_result = client.get(&health_url).send().await;
+    match request_result {
         Ok(response) => {
             let status = response.status();
             let text = response.text().await?;
@@ -383,19 +385,25 @@ async fn handle_config_command(
     cmd: ConfigCommands,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match cmd {
-        ConfigCommands::Validate => match IndexerConfig::from_env() {
-            Ok(config) => match config.validate() {
-                Ok(()) => println!("Configuration is valid"),
+        ConfigCommands::Validate => {
+            let config_result = IndexerConfig::from_env();
+            match config_result {
+                Ok(config) => {
+                    let validation_result = config.validate();
+                    match validation_result {
+                        Ok(()) => println!("Configuration is valid"),
+                        Err(e) => {
+                            error!("Configuration validation failed: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
                 Err(e) => {
-                    error!("Configuration validation failed: {}", e);
+                    error!("Failed to load configuration: {}", e);
                     std::process::exit(1);
                 }
-            },
-            Err(e) => {
-                error!("Failed to load configuration: {}", e);
-                std::process::exit(1);
             }
-        },
+        }
 
         ConfigCommands::Show => {
             let config = IndexerConfig::from_env()?;
@@ -427,7 +435,8 @@ async fn handle_metrics_command(
                 config.api.http.bind, config.api.http.port
             );
 
-            match client.get(&metrics_url).send().await {
+            let metrics_result = client.get(&metrics_url).send().await;
+            match metrics_result {
                 Ok(response) => {
                     let text = response.text().await?;
                     println!("{}", text);
@@ -446,7 +455,8 @@ async fn handle_metrics_command(
                 config.api.http.bind, config.metrics.port
             );
 
-            match client.get(&prometheus_url).send().await {
+            let prometheus_result = client.get(&prometheus_url).send().await;
+            match prometheus_result {
                 Ok(response) => {
                     let text = response.text().await?;
                     println!("{}", text);

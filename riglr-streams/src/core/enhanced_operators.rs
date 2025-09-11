@@ -5,6 +5,7 @@
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
@@ -18,6 +19,19 @@ pub struct GroupedStream<S, F, K> {
     inner: S,
     key_fn: Arc<F>,
     groups: Arc<DashMap<K, broadcast::Sender<Arc<DynamicStreamedEvent>>>>,
+}
+
+impl<S, F, K> fmt::Debug for GroupedStream<S, F, K>
+where
+    S: fmt::Debug,
+    K: Clone + Eq + std::hash::Hash + fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GroupedStream")
+            .field("inner", &self.inner)
+            .field("groups_count", &self.groups.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<S, F, K> GroupedStream<S, F, K>
@@ -67,15 +81,21 @@ where
         let groups = self.groups.clone();
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                let key = (key_fn)(event.as_ref());
+            loop {
+                let recv_result = inner_rx.recv().await;
+                match recv_result {
+                    Ok(event) => {
+                        let key = (key_fn)(event.as_ref());
 
-                let sender = groups.entry(key).or_insert_with(|| {
-                    let (tx, _) = broadcast::channel(1000);
-                    tx
-                });
+                        let sender = groups.entry(key).or_insert_with(|| {
+                            let (tx, _) = broadcast::channel(1000);
+                            tx
+                        });
 
-                let _ = sender.send(event);
+                        let _ = sender.send(event);
+                    }
+                    Err(_) => break,
+                }
             }
         });
 
@@ -83,7 +103,8 @@ where
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let result = self.inner.stop().await;
+        result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -95,7 +116,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health = self.inner.health().await;
+        health
     }
 
     fn name(&self) -> &str {
@@ -108,6 +130,18 @@ pub struct WindowedStream<S> {
     inner: S,
     window_duration: Duration,
     windows: Arc<RwLock<Vec<Arc<DynamicStreamedEvent>>>>,
+}
+
+impl<S> fmt::Debug for WindowedStream<S>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WindowedStream")
+            .field("inner", &self.inner)
+            .field("window_duration", &self.window_duration)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<S> WindowedStream<S>
@@ -169,7 +203,8 @@ where
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let result = self.inner.stop().await;
+        result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -181,7 +216,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health = self.inner.health().await;
+        health
     }
 
     fn name(&self) -> &str {

@@ -146,12 +146,14 @@ pub async fn get_token_price(
     // Use WebClient for HTTP request with retry logic
     let client = WebClient::default();
 
-    let response_text = client
-        .get(&url)
-        .await
+    // Extract async operation result to intermediate variable for Rust 2024 compatibility
+    let response_result = client.get(&url).await;
+    let response_text = response_result
         .map_err(|e| ToolError::retriable_string(format!("DexScreener request failed: {}", e)))?;
 
-    let data: DexScreenerResponse = serde_json::from_str(&response_text)
+    // Extract parse result to intermediate variable for Rust 2024 compatibility
+    let parse_result = serde_json::from_str(&response_text);
+    let data: DexScreenerResponse = parse_result
         .map_err(|e| ToolError::retriable_string(format!("Failed to parse response: {}", e)))?;
 
     // Find pair with highest liquidity for most reliable price
@@ -190,15 +192,15 @@ pub async fn get_token_price(
         fetched_at: chrono::Utc::now(),
     };
 
+    // Extract string temporaries to intermediate variables for Rust 2024 compatibility
+    let unknown_symbol = "Unknown".to_string();
+    let unknown_dex = "Unknown".to_string();
     info!(
         "Found price for {} ({}): ${} from {} DEX with ${:.2} liquidity",
         token_address,
-        result
-            .token_symbol
-            .as_ref()
-            .unwrap_or(&"Unknown".to_string()),
+        result.token_symbol.as_ref().unwrap_or(&unknown_symbol),
         result.price_usd,
-        result.source_dex.as_ref().unwrap_or(&"Unknown".to_string()),
+        result.source_dex.as_ref().unwrap_or(&unknown_dex),
         result.source_liquidity_usd.unwrap_or(0.0)
     );
 

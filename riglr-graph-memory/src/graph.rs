@@ -107,26 +107,25 @@ impl GraphMemory {
         );
 
         // Create Neo4j client
-        let client = Arc::new(
-            Neo4jClient::new(
-                config.neo4j_url.clone(),
-                config.username.clone(),
-                config.password.clone(),
-                config.database.clone(),
-            )
-            .await?,
-        );
+        let neo4j_client = Neo4jClient::new(
+            config.neo4j_url.clone(),
+            config.username.clone(),
+            config.password.clone(),
+            config.database.clone(),
+        )
+        .await?;
+        let client = Arc::new(neo4j_client);
 
         // Initialize database indexes for performance
-        client.create_indexes().await?;
+        let _indexes_result = client.create_indexes().await?;
 
         // Create entity extractor
         let extractor = EntityExtractor::default();
 
         // Create graph retriever
-        let retriever = Arc::new(
-            GraphRetriever::new(client.clone(), Some(config.retriever_config.clone())).await?,
-        );
+        let graph_retriever =
+            GraphRetriever::new(client.clone(), Some(config.retriever_config.clone())).await?;
+        let retriever = Arc::new(graph_retriever);
 
         // Initialize embedding client if OpenAI API key is available
         #[cfg(feature = "rig-core")]
@@ -175,7 +174,8 @@ impl GraphMemory {
         // Process documents in batches
         for chunk in documents.chunks(self.config.batch_size) {
             for doc in chunk {
-                match self.process_single_document(doc.clone()).await {
+                let process_result = self.process_single_document(doc.clone()).await;
+                match process_result {
                     Ok(processed) => {
                         document_ids.push(processed.id.clone());
                         processed_docs.push(processed);
@@ -189,7 +189,10 @@ impl GraphMemory {
         }
 
         // Store processed documents using the vector store
-        let stored_ids = self.retriever.add_documents(processed_docs).await?;
+        let stored_ids = {
+            let result = self.retriever.add_documents(processed_docs).await?;
+            result
+        };
 
         info!(
             "Successfully processed and stored {} documents",
@@ -227,13 +230,15 @@ impl GraphMemory {
             document.metadata = Some(metadata);
 
             // Store entities and relationships in graph
-            self.store_entities_and_relationships(&document, &extracted)
+            let _store_result = self
+                .store_entities_and_relationships(&document, &extracted)
                 .await?;
         }
 
         // Generate embeddings if enabled
         if self.config.auto_generate_embeddings {
-            document.embedding = self.generate_real_embedding(&document.content).await?;
+            let embedding_result = self.generate_real_embedding(&document.content).await?;
+            document.embedding = embedding_result;
         }
 
         debug!("Document processing completed: {}", document.id);
@@ -402,9 +407,11 @@ impl GraphMemory {
         query_embedding: &[f32],
         limit: usize,
     ) -> Result<crate::vector_store::GraphSearchResult> {
-        self.retriever
+        let search_result = self
+            .retriever
             .search_with_graph_context(query_embedding, limit)
-            .await
+            .await?;
+        Ok(search_result)
     }
 
     /// Get comprehensive statistics about the graph

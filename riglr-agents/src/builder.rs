@@ -34,7 +34,7 @@ use std::time::Duration;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AgentSystemBuilder {
     registry_config: RegistryConfig,
     dispatch_config: DispatchConfig,
@@ -174,6 +174,7 @@ impl AgentSystemBuilder {
 }
 
 /// A complete agent system with local registry.
+#[derive(Debug)]
 pub struct AgentSystem {
     /// Agent registry
     pub registry: Arc<LocalAgentRegistry>,
@@ -231,6 +232,7 @@ impl AgentSystem {
 }
 
 /// A complete agent system with custom registry.
+#[derive(Debug)]
 pub struct CustomAgentSystem<R: AgentRegistry> {
     /// Agent registry
     pub registry: Arc<R>,

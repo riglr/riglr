@@ -42,6 +42,7 @@ pub struct TaskResponse {
 }
 
 /// Redis-based implementation of distributed task queue.
+#[derive(Debug)]
 pub struct RedisTaskQueue {
     connection: Arc<Mutex<MultiplexedConnection>>,
 }
@@ -142,11 +143,10 @@ impl RedisTaskQueue {
         // Use blocking pop to wait for response
         let response: Option<(String, String)> = {
             let mut conn = self.connection.lock().await;
-            conn.brpop(response_queue, timeout_secs as f64)
-                .await
-                .map_err(|e| {
-                    crate::AgentError::communication(format!("Failed to read response: {}", e))
-                })?
+            let brpop_result = conn.brpop(response_queue, timeout_secs as f64).await;
+            brpop_result.map_err(|e| {
+                crate::AgentError::communication(format!("Failed to read response: {}", e))
+            })?
         };
 
         if let Some((_queue, response_json)) = response {
@@ -193,6 +193,7 @@ impl DistributedTaskQueue for RedisTaskQueue {
 }
 
 /// Worker that processes tasks from a queue for a local agent.
+#[derive(Debug)]
 pub struct QueueWorker {
     agent_id: AgentId,
     connection: MultiplexedConnection,
@@ -223,10 +224,10 @@ impl QueueWorker {
 
         loop {
             // Block waiting for a task (with timeout to allow for graceful shutdown checks)
-            let task_json: Option<String> =
-                self.connection.brpop(&queue_name, 5.0).await.map_err(|e| {
-                    crate::AgentError::communication(format!("Failed to read from queue: {}", e))
-                })?;
+            let brpop_result = self.connection.brpop(&queue_name, 5.0).await;
+            let task_json: Option<String> = brpop_result.map_err(|e| {
+                crate::AgentError::communication(format!("Failed to read from queue: {}", e))
+            })?;
 
             if let Some(json) = task_json {
                 // Parse the task message

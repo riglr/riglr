@@ -82,6 +82,22 @@ pub struct ResilientWebSocketBuilder {
     config: ResilientConfig,
 }
 
+impl std::fmt::Debug for ResilientWebSocketBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResilientWebSocketBuilder")
+            .field("stream_name", &self.stream_name)
+            .field("running", &self.running)
+            .field("health", &self.health)
+            .field("event_tx", &"<UnboundedSender>")
+            .field("metrics", &self.metrics)
+            .field("connect_fn", &"<ConnectFn>")
+            .field("subscribe_fn", &"<SubscribeFn>")
+            .field("parse_fn", &"<ParseFn>")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 impl ResilientWebSocketBuilder {
     /// Create a new builder
     pub fn new<C, S, P>(
@@ -164,6 +180,22 @@ pub struct ResilientWebSocketConnector {
     config: ResilientConfig,
 }
 
+impl std::fmt::Debug for ResilientWebSocketConnector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResilientWebSocketConnector")
+            .field("stream_name", &self.stream_name)
+            .field("running", &self.running)
+            .field("health", &self.health)
+            .field("event_tx", &"<UnboundedSender>")
+            .field("metrics", &self.metrics)
+            .field("connect_fn", &"<ConnectFn>")
+            .field("subscribe_fn", &"<SubscribeFn>")
+            .field("parse_fn", &"<ParseFn>")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 impl ResilientWebSocketConnector {
     /// Run the resilient WebSocket connection
     pub async fn run(self) {
@@ -171,7 +203,8 @@ impl ResilientWebSocketConnector {
         let mut consecutive_failures = 0;
 
         while self.running.load(Ordering::Relaxed) {
-            match self.connect_with_retry(&mut sequence_number).await {
+            let retry_result = self.connect_with_retry(&mut sequence_number).await;
+            match retry_result {
                 Ok(()) => {
                     consecutive_failures = 0;
                 }
@@ -199,10 +232,9 @@ impl ResilientWebSocketConnector {
                     }
 
                     // Wait before next attempt
-                    tokio::time::sleep(tokio::time::Duration::from_secs(
-                        self.config.long_retry_delay_secs,
-                    ))
-                    .await;
+                    let sleep_duration =
+                        tokio::time::Duration::from_secs(self.config.long_retry_delay_secs);
+                    tokio::time::sleep(sleep_duration).await;
                 }
             }
         }
@@ -222,12 +254,14 @@ impl ResilientWebSocketConnector {
                 self.config.max_retries
             );
 
-            match (self.connect_fn)().await {
+            let connect_result = (self.connect_fn)().await;
+            match connect_result {
                 Ok(ws_stream) => {
                     let (mut write, read) = ws_stream.split();
 
                     // Send subscription messages
-                    match (self.subscribe_fn)(Box::pin(&mut write)).await {
+                    let subscribe_result = (self.subscribe_fn)(Box::pin(&mut write)).await;
+                    match subscribe_result {
                         Ok(()) => {
                             info!(
                                 "Successfully connected and subscribed to {}",
@@ -291,12 +325,12 @@ impl ResilientWebSocketConnector {
         let mut idle_counter = 0;
 
         loop {
-            match tokio::time::timeout(
+            let timeout_result = tokio::time::timeout(
                 tokio::time::Duration::from_secs(self.config.read_timeout_secs),
                 read.next(),
             )
-            .await
-            {
+            .await;
+            match timeout_result {
                 Ok(Some(Ok(Message::Text(text)))) => {
                     idle_counter = 0;
                     *sequence_number += 1;
@@ -311,7 +345,8 @@ impl ResilientWebSocketConnector {
                 }
                 Ok(Some(Ok(Message::Ping(data)))) => {
                     idle_counter = 0;
-                    if let Err(e) = write.send(Message::Pong(data)).await {
+                    let send_result = write.send(Message::Pong(data)).await;
+                    if let Err(e) = send_result {
                         warn!("Failed to send pong: {}", e);
                         break;
                     }
@@ -341,7 +376,8 @@ impl ResilientWebSocketConnector {
                         break;
                     }
                     // Send ping to keep connection alive
-                    if let Err(e) = write.send(Message::Ping(vec![].into())).await {
+                    let ping_result = write.send(Message::Ping(vec![].into())).await;
+                    if let Err(e) = ping_result {
                         warn!("Failed to send ping: {}", e);
                         break;
                     }
@@ -355,10 +391,12 @@ impl ResilientWebSocketConnector {
     async fn handle_text_message(&self, text: String, sequence_number: u64) {
         let start = std::time::Instant::now();
 
-        // Parse the message
-        if let Some(event) = (self.parse_fn)(text.clone(), sequence_number) {
+        // Parse the message - extract to fix if-let rescope
+        let parsed_event = (self.parse_fn)(text.clone(), sequence_number);
+        if let Some(event) = parsed_event {
             // Send event
-            if let Err(e) = self.event_tx.send(std::sync::Arc::new(event)) {
+            let send_result = self.event_tx.send(std::sync::Arc::new(event));
+            if let Err(e) = send_result {
                 warn!("Failed to send event: {}", e);
                 // Record dropped event metric
                 if let Some(ref metrics) = self.metrics {

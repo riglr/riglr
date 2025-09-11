@@ -26,6 +26,15 @@ pub struct WebSocketStreamer {
     event_broadcaster: broadcast::Sender<StreamMessage>,
 }
 
+impl std::fmt::Debug for WebSocketStreamer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebSocketStreamer")
+            .field("context", &"ServiceContext { .. }")
+            .field("event_broadcaster", &"broadcast::Sender { .. }")
+            .finish()
+    }
+}
+
 /// Message types for WebSocket streaming
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -171,7 +180,8 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                 _ = heartbeat_interval.tick() => {
                     let ping_msg = StreamMessage::Ping;
                     if let Ok(json) = serde_json::to_string(&ping_msg) {
-                        if sender.send(Message::Text(json.into())).await.is_err() {
+                        let send_result = sender.send(Message::Text(json.into())).await;
+                        if send_result.is_err() {
                             debug!("Client {} disconnected (send failed)", client_id_send);
                             break;
                         }
@@ -189,7 +199,11 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
     });
 
     let recv_task = tokio::spawn(async move {
-        while let Some(msg) = receiver.next().await {
+        loop {
+            let msg_option = receiver.next().await;
+            let Some(msg) = msg_option else {
+                break;
+            };
             match msg {
                 Ok(Message::Text(text)) => {
                     debug!("Received text message from {}: {}", client_id_recv, text);

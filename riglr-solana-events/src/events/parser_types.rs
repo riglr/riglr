@@ -33,16 +33,17 @@ pub struct GenericEventParseConfig {
 
 /// Inner instruction event parser
 pub type InnerInstructionEventParser =
-    fn(data: &[u8], metadata: EventMetadata) -> ParseResult<Box<dyn Event>>;
+    for<'a> fn(data: &'a [u8], metadata: EventMetadata) -> ParseResult<Box<dyn Event>>;
 
 /// Instruction event parser
-pub type InstructionEventParser = fn(
-    data: &[u8],
-    accounts: &[solana_sdk::pubkey::Pubkey],
+pub type InstructionEventParser = for<'a> fn(
+    data: &'a [u8],
+    accounts: &'a [solana_sdk::pubkey::Pubkey],
     metadata: EventMetadata,
 ) -> ParseResult<Box<dyn Event>>;
 
 /// Generic event parser base class
+#[derive(Debug)]
 pub struct GenericEventParser {
     /// List of program IDs this parser handles
     pub program_ids: Vec<solana_sdk::pubkey::Pubkey>,
@@ -99,7 +100,7 @@ impl GenericEventParser {
     /// Parse event data from inner instruction
     pub fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -141,7 +142,7 @@ impl GenericEventParser {
     /// Parse event data from instruction
     pub fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -209,13 +210,13 @@ pub trait ProtocolParser: Send + Sync {
     /// Parse event data from inner instruction
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>>;
 
     /// Parse event data from instruction
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>>;
 
     /// Check if this program ID should be handled

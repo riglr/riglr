@@ -153,8 +153,8 @@ impl MockSignerContext {
         let result = if self.isolation_enabled {
             self.execute_isolated(operation, &mock_signer).await
         } else {
-            operation(&mock_signer)
-                .await
+            let operation_result = operation(&mock_signer).await;
+            operation_result
                 .map_err(|e| SignerTestError::ValidationFailed(format!("Operation failed: {}", e)))
         };
 
@@ -246,7 +246,8 @@ impl MockSignerContext {
         }
 
         // Execute operation
-        let result = operation(signer).await.map_err(|e| {
+        let operation_result = operation(signer).await;
+        let result = operation_result.map_err(|e| {
             SignerTestError::ValidationFailed(format!("Isolated operation failed: {}", e))
         })?;
 
@@ -461,19 +462,18 @@ pub mod test_utils {
         for i in 0..concurrent_tasks {
             let context_clone = context.clone();
             let handle = tokio::spawn(async move {
-                let result = context_clone
+                context_clone
                     .execute_with_signer(|signer| {
                         Box::pin(async move {
                             // Simulate work
                             tokio::time::sleep(Duration::from_millis(100)).await;
-                            signer.get_balance().await.map(|balance| {
+                            let balance_result = signer.get_balance().await;
+                            balance_result.map(|balance| {
                                 format!("Task {} completed with balance: {}", i, balance)
                             })
                         })
                     })
-                    .await;
-
-                result
+                    .await
             });
             handles.push(handle);
         }
@@ -481,7 +481,8 @@ pub mod test_utils {
         // Wait for all tasks to complete
         let mut results = Vec::new();
         for handle in handles {
-            match handle.await {
+            let handle_result = handle.await;
+            match handle_result {
                 Ok(result) => match result {
                     Ok(message) => results.push(message),
                     Err(e) => return Err(e),

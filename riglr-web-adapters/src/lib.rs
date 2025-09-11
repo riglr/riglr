@@ -186,6 +186,7 @@ mod tests {
         use std::sync::Arc;
 
         // Create a minimal signer factory for testing
+        #[derive(Debug)]
         struct TestSignerFactory;
 
         #[async_trait::async_trait]
@@ -218,6 +219,7 @@ mod tests {
         use std::sync::Arc;
 
         // Create a minimal signer factory for testing
+        #[derive(Debug)]
         struct TestSignerFactory;
 
         #[async_trait::async_trait]
@@ -344,6 +346,7 @@ mod tests {
     #[test]
     fn test_signer_factory_trait_re_export() {
         // Test that SignerFactory trait is properly re-exported and usable
+        #[derive(Debug)]
         struct MockFactory;
 
         #[async_trait::async_trait]
@@ -376,7 +379,9 @@ mod tests {
         // Test CompositeSignerFactory through re-export with all methods
         use std::sync::Arc;
 
+        #[derive(Debug)]
         struct TestFactory1;
+        #[derive(Debug)]
         struct TestFactory2;
 
         #[async_trait::async_trait]
@@ -448,6 +453,7 @@ mod tests {
         use riglr_solana_tools::signer::LocalSolanaSigner;
         use solana_sdk::signature::Keypair;
 
+        #[derive(Debug)]
         struct WorkingFactory;
 
         #[async_trait::async_trait]

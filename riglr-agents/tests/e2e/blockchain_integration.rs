@@ -119,15 +119,16 @@ impl Agent for BlockchainTradingAgent {
         // Use riglr-solana-tools to perform the transfer via ApplicationContext
         let app_context = create_test_app_context();
 
-        match transfer_sol(
+        let transfer_result = transfer_sol(
             to_pubkey.to_string(),
             amount_lamports as f64 / solana_sdk::native_token::LAMPORTS_PER_SOL as f64,
             None, // memo
             None, // priority_fee
             &app_context,
         )
-        .await
-        {
+        .await;
+
+        match transfer_result {
             Ok(transfer_result) => {
                 info!(
                     "SOL transfer completed with signature: {}",
@@ -215,14 +216,15 @@ async fn test_end_to_end_solana_transfer() {
     // Record initial balances for verification
     let app_context = create_test_app_context();
 
-    let initial_sender_balance = get_sol_balance(sender_keypair.pubkey().to_string(), &app_context)
-        .await
-        .expect("Failed to get initial sender balance");
+    let sender_balance_result =
+        get_sol_balance(sender_keypair.pubkey().to_string(), &app_context).await;
+    let initial_sender_balance =
+        sender_balance_result.expect("Failed to get initial sender balance");
 
+    let receiver_balance_result =
+        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context).await;
     let initial_receiver_balance =
-        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context)
-            .await
-            .expect("Failed to get initial receiver balance");
+        receiver_balance_result.expect("Failed to get initial receiver balance");
 
     info!(
         "Initial balances - Sender: {} SOL, Receiver: {} SOL",
@@ -338,14 +340,15 @@ async fn test_end_to_end_solana_transfer() {
     info!("Transaction confirmed on blockchain successfully");
 
     // THE ULTIMATE VALIDATION: Verify actual balance changes on blockchain
-    let final_sender_balance = get_sol_balance(sender_keypair.pubkey().to_string(), &app_context)
-        .await
-        .expect("Failed to get final sender balance");
+    let final_sender_balance_result =
+        get_sol_balance(sender_keypair.pubkey().to_string(), &app_context).await;
+    let final_sender_balance =
+        final_sender_balance_result.expect("Failed to get final sender balance");
 
+    let final_receiver_balance_result =
+        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context).await;
     let final_receiver_balance =
-        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context)
-            .await
-            .expect("Failed to get final receiver balance");
+        final_receiver_balance_result.expect("Failed to get final receiver balance");
 
     info!(
         "Final balances - Sender: {} SOL, Receiver: {} SOL",

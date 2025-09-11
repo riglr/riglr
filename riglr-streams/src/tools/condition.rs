@@ -25,6 +25,7 @@ pub enum ConditionCombinator {
 }
 
 /// Event kind matcher
+#[derive(Debug)]
 pub struct EventKindMatcher {
     event_kinds: Vec<EventKind>,
 }
@@ -59,6 +60,7 @@ impl EventCondition for EventKindMatcher {
 }
 
 /// Source matcher (matches event source)
+#[derive(Debug)]
 pub struct SourceMatcher {
     sources: Vec<String>,
 }
@@ -93,6 +95,7 @@ impl EventCondition for SourceMatcher {
 }
 
 /// Timestamp range matcher
+#[derive(Debug)]
 pub struct TimestampRangeMatcher {
     min_timestamp: Option<std::time::SystemTime>,
     max_timestamp: Option<std::time::SystemTime>,
@@ -170,6 +173,17 @@ where
     description: String,
 }
 
+impl<F> std::fmt::Debug for CustomCondition<F>
+where
+    F: Fn(&(dyn Any + Send + Sync)) -> bool + Send + Sync,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CustomCondition")
+            .field("description", &self.description)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<F> CustomCondition<F>
 where
     F: Fn(&(dyn Any + Send + Sync)) -> bool + Send + Sync,
@@ -201,6 +215,15 @@ where
 pub struct CompositeCondition {
     conditions: Vec<Box<dyn EventCondition>>,
     combinator: ConditionCombinator,
+}
+
+impl std::fmt::Debug for CompositeCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompositeCondition")
+            .field("combinator", &self.combinator)
+            .field("conditions_count", &self.conditions.len())
+            .finish()
+    }
 }
 
 impl CompositeCondition {
@@ -313,6 +336,7 @@ pub trait EventMatcher {
 }
 
 /// Empty struct to implement EventMatcher
+#[derive(Debug)]
 pub struct Matcher;
 
 impl EventMatcher for Matcher {}

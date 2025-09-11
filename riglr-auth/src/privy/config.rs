@@ -141,9 +141,31 @@ fn default_cache_ttl() -> u64 {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::undocumented_unsafe_blocks,
+    unsafe_code
+)] // Test helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
-    use std::env;
+
+    /// Helper function to set environment variables in tests without using string literals
+    fn set_test_env_var(key: &str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals  
+    fn remove_test_env_var(key: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
 
     #[test]
     fn test_default_api_url_should_return_correct_url() {
@@ -276,8 +298,8 @@ mod tests {
     #[test]
     fn test_from_env_when_required_vars_present_should_return_ok() {
         // Set required environment variables
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -294,14 +316,14 @@ mod tests {
         assert!(config.enable_cache);
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
     }
 
     #[test]
     fn test_from_env_when_app_id_missing_should_return_err() {
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
 
         let result = PrivyConfig::from_env();
         assert!(result.is_err());
@@ -314,8 +336,8 @@ mod tests {
 
     #[test]
     fn test_from_env_when_app_secret_missing_should_return_err() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::remove_var(PRIVY_APP_SECRET);
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        remove_test_env_var(PRIVY_APP_SECRET);
 
         let result = PrivyConfig::from_env();
         assert!(result.is_err());
@@ -326,14 +348,14 @@ mod tests {
         }
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_ID);
     }
 
     #[test]
     fn test_from_env_with_custom_api_url_should_override_default() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_API_URL, "https://custom.api.url");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_API_URL, "https://custom.api.url");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -342,16 +364,16 @@ mod tests {
         assert_eq!(config.api_url, "https://custom.api.url");
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_API_URL);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_API_URL);
     }
 
     #[test]
     fn test_from_env_with_custom_auth_url_should_override_default() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_AUTH_URL, "https://custom.auth.url");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_AUTH_URL, "https://custom.auth.url");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -360,16 +382,16 @@ mod tests {
         assert_eq!(config.auth_url, "https://custom.auth.url");
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_AUTH_URL);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_AUTH_URL);
     }
 
     #[test]
     fn test_from_env_with_custom_jwks_url_should_override_default() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_JWKS_URL, "https://custom.jwks.url");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_JWKS_URL, "https://custom.jwks.url");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -378,16 +400,16 @@ mod tests {
         assert_eq!(config.jwks_url, "https://custom.jwks.url");
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_JWKS_URL);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_JWKS_URL);
     }
 
     #[test]
     fn test_from_env_with_cache_true_should_enable_cache() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_ENABLE_CACHE, "true");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_ENABLE_CACHE, "true");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -396,16 +418,16 @@ mod tests {
         assert!(config.enable_cache);
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_ENABLE_CACHE);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_ENABLE_CACHE);
     }
 
     #[test]
     fn test_from_env_with_cache_false_should_disable_cache() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_ENABLE_CACHE, "false");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_ENABLE_CACHE, "false");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -414,16 +436,16 @@ mod tests {
         assert!(!config.enable_cache);
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_ENABLE_CACHE);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_ENABLE_CACHE);
     }
 
     #[test]
     fn test_from_env_with_invalid_cache_value_should_default_to_true() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_ENABLE_CACHE, "invalid");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_ENABLE_CACHE, "invalid");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -432,19 +454,19 @@ mod tests {
         assert!(config.enable_cache); // Should default to true on parse error
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_ENABLE_CACHE);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_ENABLE_CACHE);
     }
 
     #[test]
     fn test_from_env_with_all_optional_overrides_should_use_all_custom_values() {
-        env::set_var(PRIVY_APP_ID, "test_app_id");
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
-        env::set_var(PRIVY_API_URL, "https://custom.api.url");
-        env::set_var(PRIVY_AUTH_URL, "https://custom.auth.url");
-        env::set_var(PRIVY_JWKS_URL, "https://custom.jwks.url");
-        env::set_var(PRIVY_ENABLE_CACHE, "false");
+        set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_API_URL, "https://custom.api.url");
+        set_test_env_var(PRIVY_AUTH_URL, "https://custom.auth.url");
+        set_test_env_var(PRIVY_JWKS_URL, "https://custom.jwks.url");
+        set_test_env_var(PRIVY_ENABLE_CACHE, "false");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_ok());
@@ -458,18 +480,18 @@ mod tests {
         assert!(!config.enable_cache);
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
-        env::remove_var(PRIVY_API_URL);
-        env::remove_var(PRIVY_AUTH_URL);
-        env::remove_var(PRIVY_JWKS_URL);
-        env::remove_var(PRIVY_ENABLE_CACHE);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_API_URL);
+        remove_test_env_var(PRIVY_AUTH_URL);
+        remove_test_env_var(PRIVY_JWKS_URL);
+        remove_test_env_var(PRIVY_ENABLE_CACHE);
     }
 
     #[test]
     fn test_from_env_when_validation_fails_should_return_err() {
-        env::set_var(PRIVY_APP_ID, ""); // Empty app_id should fail validation
-        env::set_var(PRIVY_APP_SECRET, "test_secret");
+        set_test_env_var(PRIVY_APP_ID, ""); // Empty app_id should fail validation
+        set_test_env_var(PRIVY_APP_SECRET, "test_secret");
 
         let result = PrivyConfig::from_env();
         assert!(result.is_err());
@@ -480,8 +502,8 @@ mod tests {
         }
 
         // Clean up
-        env::remove_var(PRIVY_APP_ID);
-        env::remove_var(PRIVY_APP_SECRET);
+        remove_test_env_var(PRIVY_APP_ID);
+        remove_test_env_var(PRIVY_APP_SECRET);
     }
 
     #[test]

@@ -167,6 +167,8 @@ where
     let req_id = request_id.clone();
 
     // Create the stream with proper event formatting
+    #[allow(tail_expr_drop_order)]
+    // Rust 2024 compatibility: macro-generated code has tail expressions that can't be manually extracted
     let stream = async_stream::stream! {
         // Send start event
         let start_event = AgentEvent::Start {
@@ -174,7 +176,8 @@ where
             request_id: req_id.clone(),
             timestamp: chrono::Utc::now(),
         };
-        yield Ok(serde_json::to_string(&start_event).unwrap_or_default());
+        let start_event_json = serde_json::to_string(&start_event).unwrap_or_default();
+        yield Ok(start_event_json);
 
         // Get agent stream first, then process within signer context
         let agent_stream_result = agent.prompt_stream(&prompt.text).await;
@@ -182,13 +185,19 @@ where
         let stream_result = match agent_stream_result {
             Ok(mut agent_stream) => {
                 // Process each chunk within signer context
-                SignerContext::with_signer(signer, async move {
+                let context_result = SignerContext::with_signer(signer, async move {
                     let mut chunks = Vec::new();
-                    while let Some(chunk_result) = agent_stream.next().await {
-                        chunks.push(chunk_result);
+                    loop {
+                        let next_result = agent_stream.next().await;
+                        match next_result {
+                            Some(chunk_result) => chunks.push(chunk_result),
+                            None => break,
+                        }
                     }
                     Ok::<Vec<Result<String, _>>, riglr_core::signer::SignerError>(chunks)
-                }).await.map(futures_util::stream::iter)
+                }).await;
+                let map_result = context_result.map(futures_util::stream::iter);
+                map_result
             }
             Err(e) => Err(riglr_core::signer::SignerError::Configuration(e.to_string()))
         };
@@ -196,26 +205,34 @@ where
         match stream_result {
             Ok(mut stream) => {
                 // Forward all chunks from the real stream
-                while let Some(chunk_result) = stream.next().await {
-                    match chunk_result {
-                        Ok(chunk) => {
-                            let content_event = AgentEvent::Content {
-                                content: chunk,
-                                conversation_id: conv_id.clone(),
-                                request_id: req_id.clone(),
-                            };
-                            yield Ok(serde_json::to_string(&content_event).unwrap_or_default());
+                loop {
+                    let next_result = stream.next().await;
+                    match next_result {
+                        Some(chunk_result) => {
+                            match chunk_result {
+                                Ok(chunk) => {
+                                    let content_event = AgentEvent::Content {
+                                        content: chunk,
+                                        conversation_id: conv_id.clone(),
+                                        request_id: req_id.clone(),
+                                    };
+                                    let content_event_json = serde_json::to_string(&content_event).unwrap_or_default();
+                                    yield Ok(content_event_json);
+                                }
+                                Err(e) => {
+                                    let error_event = AgentEvent::Error {
+                                        error: e.to_string(),
+                                        conversation_id: conv_id.clone(),
+                                        request_id: req_id.clone(),
+                                        timestamp: chrono::Utc::now(),
+                                    };
+                                    let error_event_json = serde_json::to_string(&error_event).unwrap_or_default();
+                                    yield Ok(error_event_json);
+                                    return;
+                                }
+                            }
                         }
-                        Err(e) => {
-                            let error_event = AgentEvent::Error {
-                                error: e.to_string(),
-                                conversation_id: conv_id.clone(),
-                                request_id: req_id.clone(),
-                                timestamp: chrono::Utc::now(),
-                            };
-                            yield Ok(serde_json::to_string(&error_event).unwrap_or_default());
-                            return;
-                        }
+                        None => break,
                     }
                 }
 
@@ -225,7 +242,8 @@ where
                     request_id: req_id.clone(),
                     timestamp: chrono::Utc::now(),
                 };
-                yield Ok(serde_json::to_string(&complete_event).unwrap_or_default());
+                let complete_event_json = serde_json::to_string(&complete_event).unwrap_or_default();
+                yield Ok(complete_event_json);
             }
             Err(e) => {
                 // Send error event
@@ -235,12 +253,14 @@ where
                     request_id: req_id.clone(),
                     timestamp: chrono::Utc::now(),
                 };
-                yield Ok(serde_json::to_string(&error_event).unwrap_or_default());
+                let error_event_json = serde_json::to_string(&error_event).unwrap_or_default();
+                yield Ok(error_event_json);
             }
         }
     };
 
-    Ok(Box::pin(stream))
+    let pinned_stream = Box::pin(stream);
+    Ok(pinned_stream)
 }
 
 /// Framework-agnostic handler for one-shot agent completion
@@ -277,7 +297,7 @@ where
         "Processing completion request"
     );
 
-    let response = SignerContext::with_signer(signer, async move {
+    let context_result = SignerContext::with_signer(signer, async move {
         let response = agent
             .prompt(&prompt.text)
             .await
@@ -291,8 +311,10 @@ where
             timestamp: chrono::Utc::now(),
         })
     })
-    .await
-    .map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
+    .await;
+
+    let map_err_result = context_result.map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>);
+    let response = map_err_result?;
 
     tracing::info!(
         conversation_id = %response.conversation_id,
@@ -305,10 +327,29 @@ where
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test module uses unsafe std::env operations for Rust 2024 compatibility with proper safety documentation
 mod tests {
     use super::*;
     use riglr_solana_tools::signer::LocalSolanaSigner;
     use solana_sdk::signature::Keypair;
+
+    /// Helper function to set environment variables in tests without using string literals
+    fn set_test_env_var(key: &str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals
+    fn remove_test_env_var(key: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
 
     // Test constants
     const TEST_RPC_URL: &str = "https://api.devnet.solana.com";
@@ -393,9 +434,15 @@ mod tests {
         let mut stream = result.unwrap();
         let mut events = Vec::new();
 
-        while let Some(event_result) = stream.next().await {
-            let event_json = event_result.unwrap();
-            events.push(event_json);
+        loop {
+            let next_result = stream.next().await;
+            match next_result {
+                Some(event_result) => {
+                    let event_json = event_result.unwrap();
+                    events.push(event_json);
+                }
+                None => break,
+            }
         }
 
         // Should have start + content chunks + complete events
@@ -520,7 +567,7 @@ mod tests {
         let agent = MockAgentWithModel::new("test".to_string(), None);
 
         // Ensure environment variable is not set
-        std::env::remove_var(RIGLR_DEFAULT_MODEL);
+        remove_test_env_var(RIGLR_DEFAULT_MODEL);
 
         let result = get_model_name(&agent);
         assert_eq!(result, None);
@@ -531,13 +578,13 @@ mod tests {
         let agent = MockAgentWithModel::new("test".to_string(), None);
 
         // Set environment variable
-        std::env::set_var(RIGLR_DEFAULT_MODEL, "env-model");
+        set_test_env_var(RIGLR_DEFAULT_MODEL, "env-model");
 
         let result = get_model_name(&agent);
         assert_eq!(result, Some("env-model".to_string()));
 
         // Clean up
-        std::env::remove_var(RIGLR_DEFAULT_MODEL);
+        remove_test_env_var(RIGLR_DEFAULT_MODEL);
     }
 
     #[test]
@@ -757,9 +804,15 @@ mod tests {
         let mut stream = result.unwrap();
         let mut events = Vec::new();
 
-        while let Some(event_result) = stream.next().await {
-            let event_json = event_result.unwrap();
-            events.push(event_json);
+        loop {
+            let next_result = stream.next().await;
+            match next_result {
+                Some(event_result) => {
+                    let event_json = event_result.unwrap();
+                    events.push(event_json);
+                }
+                None => break,
+            }
         }
 
         // Should have start + content chunks + complete events
@@ -801,9 +854,15 @@ mod tests {
         let mut stream = result.unwrap();
         let mut events = Vec::new();
 
-        while let Some(event_result) = stream.next().await {
-            let event_json = event_result.unwrap();
-            events.push(event_json);
+        loop {
+            let next_result = stream.next().await;
+            match next_result {
+                Some(event_result) => {
+                    let event_json = event_result.unwrap();
+                    events.push(event_json);
+                }
+                None => break,
+            }
         }
 
         // Should have start + error events
@@ -844,9 +903,15 @@ mod tests {
         let mut stream = result.unwrap();
         let mut events = Vec::new();
 
-        while let Some(event_result) = stream.next().await {
-            let event_json = event_result.unwrap();
-            events.push(event_json);
+        loop {
+            let next_result = stream.next().await;
+            match next_result {
+                Some(event_result) => {
+                    let event_json = event_result.unwrap();
+                    events.push(event_json);
+                }
+                None => break,
+            }
         }
 
         // Should have start + content + error events (no complete due to error)

@@ -103,6 +103,7 @@ impl ValidationConfig {
 }
 
 /// JSON-based event parser implementation.
+#[derive(Debug)]
 pub struct JsonEventParser {
     config: ParsingConfig,
     event_kind: EventKind,
@@ -403,6 +404,15 @@ pub struct MultiFormatParser {
     default_format: String,
 }
 
+impl std::fmt::Debug for MultiFormatParser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MultiFormatParser")
+            .field("parsers", &format!("{} parsers", self.parsers.len()))
+            .field("default_format", &self.default_format)
+            .finish()
+    }
+}
+
 impl MultiFormatParser {
     /// Create a new multi-format parser
     pub fn new(default_format: String) -> Self {
@@ -467,6 +477,7 @@ impl EventParser for MultiFormatParser {
 }
 
 /// Binary data parser for handling raw bytes.
+#[derive(Debug)]
 pub struct BinaryEventParser {
     name: String,
     version: String,

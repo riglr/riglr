@@ -62,27 +62,30 @@ pub use web3auth::{Web3AuthConfig, Web3AuthProvider};
 pub use magic::{MagicConfig, MagicProvider};
 
 // Re-export the SignerFactory trait from web-adapters for convenience
-pub use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+// NOTE: Commented out to avoid circular dependency with riglr-web-adapters
+// pub use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 
-/// Extension trait for CompositeSignerFactory to easily register auth providers
-pub trait CompositeSignerFactoryExt {
-    /// Register an authentication provider with the factory
-    fn register_provider(&mut self, provider: AuthProvider);
-}
-
-impl CompositeSignerFactoryExt for riglr_web_adapters::factory::CompositeSignerFactory {
-    fn register_provider(&mut self, provider: AuthProvider) {
-        let auth_type = provider.auth_type();
-        self.register_factory(auth_type, Box::new(provider));
-    }
-}
+// Extension trait commented out to avoid circular dependency
+// /// Extension trait for CompositeSignerFactory to easily register auth providers
+// pub trait CompositeSignerFactoryExt {
+//     /// Register an authentication provider with the factory
+//     fn register_provider(&mut self, provider: AuthProvider);
+// }
+//
+// impl CompositeSignerFactoryExt for riglr_web_adapters::factory::CompositeSignerFactory {
+//     fn register_provider(&mut self, provider: AuthProvider) {
+//         let auth_type = provider.auth_type();
+//         self.register_factory(auth_type, Box::new(provider));
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use async_trait::async_trait;
     use riglr_core::signer::{EvmClient, SignerError, UnifiedSigner};
-    use riglr_web_adapters::factory::{AuthenticationData, CompositeSignerFactory};
+    // use riglr_web_adapters::factory::{AuthenticationData, CompositeSignerFactory};
+    use crate::provider::{AuthenticationData, SignerFactory};
     use std::collections::HashMap;
 
     // Mock SignerFactory implementation for testing
@@ -592,342 +595,342 @@ mod tests {
     }
 
     mod composite_signer_factory_ext_tests {
-        use super::*;
+        /* Commenting out tests that depend on CompositeSignerFactory to avoid circular dependency
+            #[test]
+            fn test_register_provider_when_privy_provider_should_register_with_privy_auth_type() {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["privy".to_string()]));
+                let provider = AuthProvider::new(AuthProviderType::Privy, mock_signer_factory);
 
-        #[test]
-        fn test_register_provider_when_privy_provider_should_register_with_privy_auth_type() {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["privy".to_string()]));
-            let provider = AuthProvider::new(AuthProviderType::Privy, mock_signer_factory);
+                factory.register_provider(provider);
 
-            factory.register_provider(provider);
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"privy".to_string()));
+            }
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"privy".to_string()));
+            #[test]
+            fn test_register_provider_when_web3auth_provider_should_register_with_web3auth_auth_type() {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["web3auth".to_string()]));
+                let provider = AuthProvider::new(AuthProviderType::Web3Auth, mock_signer_factory);
+
+                factory.register_provider(provider);
+
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"web3auth".to_string()));
+            }
+
+            #[test]
+            fn test_register_provider_when_magic_provider_should_register_with_magic_auth_type() {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["magic".to_string()]));
+                let provider = AuthProvider::new(AuthProviderType::Magic, mock_signer_factory);
+
+                factory.register_provider(provider);
+
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"magic".to_string()));
+            }
+
+            #[test]
+            fn test_register_provider_when_custom_provider_should_register_with_custom_auth_type() {
+                let mut factory = CompositeSignerFactory::new();
+                let custom_type = "my_custom_auth".to_string();
+                let mock_signer_factory = Box::new(MockSignerFactory::new(vec![custom_type.clone()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom(custom_type.clone()),
+                    mock_signer_factory,
+                );
+
+                factory.register_provider(provider);
+
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&custom_type));
+            }
+
+            #[test]
+            fn test_register_provider_when_empty_custom_name_should_register_with_empty_auth_type() {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("".to_string()),
+                    mock_signer_factory,
+                );
+
+                factory.register_provider(provider);
+
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"".to_string()));
+            }
+
+            #[test]
+            fn test_register_provider_when_multiple_providers_should_register_all() {
+                let mut factory = CompositeSignerFactory::new();
+
+                let privy_provider = AuthProvider::new(
+                    AuthProviderType::Privy,
+                    Box::new(MockSignerFactory::new(vec!["privy".to_string()])),
+                );
+                let web3auth_provider = AuthProvider::new(
+                    AuthProviderType::Web3Auth,
+                    Box::new(MockSignerFactory::new(vec!["web3auth".to_string()])),
+                );
+                let custom_provider = AuthProvider::new(
+                    AuthProviderType::Custom("custom".to_string()),
+                    Box::new(MockSignerFactory::new(vec!["custom".to_string()])),
+                );
+
+                factory.register_provider(privy_provider);
+                factory.register_provider(web3auth_provider);
+                factory.register_provider(custom_provider);
+
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"privy".to_string()));
+                assert!(supported_types.contains(&"web3auth".to_string()));
+                assert!(supported_types.contains(&"custom".to_string()));
+            }
+
+            #[tokio::test]
+            async fn test_register_provider_when_registered_should_be_usable_for_creating_signers() {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("test".to_string()),
+                    mock_signer_factory,
+                );
+
+                factory.register_provider(provider);
+
+                let mut creds = HashMap::new();
+                creds.insert("token".to_string(), "test_token".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
+
+                let result = factory.create_signer(auth_data).await;
+                assert!(result.is_ok());
+
+                let signer = result.unwrap();
+                // For mock signer, just verify it supports the expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
+
+            #[tokio::test]
+            async fn test_register_provider_when_registered_failing_provider_should_fail_signer_creation(
+            ) {
+                let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new_failing(vec!["test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("test".to_string()),
+                    mock_signer_factory,
+                );
+
+                factory.register_provider(provider);
+
+                let mut creds = HashMap::new();
+                creds.insert("token".to_string(), "test_token".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
+
+                let result = factory.create_signer(auth_data).await;
+                assert!(result.is_err());
+            }
         }
 
-        #[test]
-        fn test_register_provider_when_web3auth_provider_should_register_with_web3auth_auth_type() {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["web3auth".to_string()]));
-            let provider = AuthProvider::new(AuthProviderType::Web3Auth, mock_signer_factory);
+        mod integration_tests {
+            use super::*;
 
-            factory.register_provider(provider);
+            #[tokio::test]
+            async fn test_full_workflow_register_and_use_provider() {
+                let mut factory = CompositeSignerFactory::new();
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"web3auth".to_string()));
-        }
+                // Create and register a provider
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["integration_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("integration_test".to_string()),
+                    mock_signer_factory,
+                );
 
-        #[test]
-        fn test_register_provider_when_magic_provider_should_register_with_magic_auth_type() {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["magic".to_string()]));
-            let provider = AuthProvider::new(AuthProviderType::Magic, mock_signer_factory);
+                factory.register_provider(provider);
 
-            factory.register_provider(provider);
+                // Verify it's registered
+                let supported_types = factory.supported_auth_types();
+                assert!(supported_types.contains(&"integration_test".to_string()));
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"magic".to_string()));
-        }
+                // Use it to create a signer
+                let mut creds = HashMap::new();
+                creds.insert("token".to_string(), "integration_token".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "integration_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-        #[test]
-        fn test_register_provider_when_custom_provider_should_register_with_custom_auth_type() {
-            let mut factory = CompositeSignerFactory::new();
-            let custom_type = "my_custom_auth".to_string();
-            let mock_signer_factory = Box::new(MockSignerFactory::new(vec![custom_type.clone()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom(custom_type.clone()),
-                mock_signer_factory,
-            );
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-            factory.register_provider(provider);
+                let signer = signer_result.unwrap();
+                // Verify basic properties through SignerBase trait
+                assert_eq!(signer.user_id(), Some("test_user".to_string()));
+                assert_eq!(signer.locale(), "en");
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&custom_type));
-        }
+                // Verify signer supports expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
 
-        #[test]
-        fn test_register_provider_when_empty_custom_name_should_register_with_empty_auth_type() {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("".to_string()),
-                mock_signer_factory,
-            );
+            #[tokio::test]
+            async fn test_full_workflow_with_credentials() {
+                let mut factory = CompositeSignerFactory::new();
 
-            factory.register_provider(provider);
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["creds_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("creds_test".to_string()),
+                    mock_signer_factory,
+                );
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"".to_string()));
-        }
+                factory.register_provider(provider);
 
-        #[test]
-        fn test_register_provider_when_multiple_providers_should_register_all() {
-            let mut factory = CompositeSignerFactory::new();
+                let mut creds = HashMap::new();
+                creds.insert("username".to_string(), "test_user".to_string());
+                creds.insert("address".to_string(), "0xabcd".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "creds_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-            let privy_provider = AuthProvider::new(
-                AuthProviderType::Privy,
-                Box::new(MockSignerFactory::new(vec!["privy".to_string()])),
-            );
-            let web3auth_provider = AuthProvider::new(
-                AuthProviderType::Web3Auth,
-                Box::new(MockSignerFactory::new(vec!["web3auth".to_string()])),
-            );
-            let custom_provider = AuthProvider::new(
-                AuthProviderType::Custom("custom".to_string()),
-                Box::new(MockSignerFactory::new(vec!["custom".to_string()])),
-            );
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-            factory.register_provider(privy_provider);
-            factory.register_provider(web3auth_provider);
-            factory.register_provider(custom_provider);
+                let signer = signer_result.unwrap();
+                // For mock signer, just verify it supports the expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
 
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"privy".to_string()));
-            assert!(supported_types.contains(&"web3auth".to_string()));
-            assert!(supported_types.contains(&"custom".to_string()));
-        }
+            #[tokio::test]
+            async fn test_full_workflow_with_custom_auth_data() {
+                let mut factory = CompositeSignerFactory::new();
 
-        #[tokio::test]
-        async fn test_register_provider_when_registered_should_be_usable_for_creating_signers() {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory = Box::new(MockSignerFactory::new(vec!["test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("test".to_string()),
-                mock_signer_factory,
-            );
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["custom_data_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("custom_data_test".to_string()),
+                    mock_signer_factory,
+                );
 
-            factory.register_provider(provider);
+                factory.register_provider(provider);
 
-            let mut creds = HashMap::new();
-            creds.insert("token".to_string(), "test_token".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
+                let mut creds = HashMap::new();
+                creds.insert("address".to_string(), "custom_0x456".to_string());
+                creds.insert("metadata".to_string(), "test_meta".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "custom_data_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-            let result = factory.create_signer(auth_data).await;
-            assert!(result.is_ok());
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-            let signer = result.unwrap();
-            // For mock signer, just verify it supports the expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
+                let signer = signer_result.unwrap();
+                // For mock signer, just verify it supports the expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
 
-        #[tokio::test]
-        async fn test_register_provider_when_registered_failing_provider_should_fail_signer_creation(
-        ) {
-            let mut factory = CompositeSignerFactory::new();
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new_failing(vec!["test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("test".to_string()),
-                mock_signer_factory,
-            );
+            #[tokio::test]
+            async fn test_full_workflow_with_error_signer() {
+                let mut factory = CompositeSignerFactory::new();
 
-            factory.register_provider(provider);
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["error_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("error_test".to_string()),
+                    mock_signer_factory,
+                );
 
-            let mut creds = HashMap::new();
-            creds.insert("token".to_string(), "test_token".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
+                factory.register_provider(provider);
 
-            let result = factory.create_signer(auth_data).await;
-            assert!(result.is_err());
-        }
-    }
+                let mut creds = HashMap::new();
+                creds.insert("address".to_string(), "error".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "error_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-    mod integration_tests {
-        use super::*;
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-        #[tokio::test]
-        async fn test_full_workflow_register_and_use_provider() {
-            let mut factory = CompositeSignerFactory::new();
+                let _signer = signer_result.unwrap();
+                // Test completed - the mock signer was created successfully
+            }
 
-            // Create and register a provider
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["integration_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("integration_test".to_string()),
-                mock_signer_factory,
-            );
+            #[tokio::test]
+            async fn test_full_workflow_evm_client() {
+                let mut factory = CompositeSignerFactory::new();
 
-            factory.register_provider(provider);
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["evm_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("evm_test".to_string()),
+                    mock_signer_factory,
+                );
 
-            // Verify it's registered
-            let supported_types = factory.supported_auth_types();
-            assert!(supported_types.contains(&"integration_test".to_string()));
+                factory.register_provider(provider);
 
-            // Use it to create a signer
-            let mut creds = HashMap::new();
-            creds.insert("token".to_string(), "integration_token".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "integration_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
+                let mut creds = HashMap::new();
+                creds.insert("address".to_string(), "0xtest".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "evm_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-            let signer = signer_result.unwrap();
-            // Verify basic properties through SignerBase trait
-            assert_eq!(signer.user_id(), Some("test_user".to_string()));
-            assert_eq!(signer.locale(), "en");
+                let signer = signer_result.unwrap();
+                // For mock signer, just verify it supports the expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
 
-            // Verify signer supports expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
+            #[tokio::test]
+            async fn test_full_workflow_solana_client() {
+                let mut factory = CompositeSignerFactory::new();
 
-        #[tokio::test]
-        async fn test_full_workflow_with_credentials() {
-            let mut factory = CompositeSignerFactory::new();
+                let mock_signer_factory =
+                    Box::new(MockSignerFactory::new(vec!["solana_test".to_string()]));
+                let provider = AuthProvider::new(
+                    AuthProviderType::Custom("solana_test".to_string()),
+                    mock_signer_factory,
+                );
 
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["creds_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("creds_test".to_string()),
-                mock_signer_factory,
-            );
+                factory.register_provider(provider);
 
-            factory.register_provider(provider);
+                let mut creds = HashMap::new();
+                creds.insert("address".to_string(), "solana_addr".to_string());
+                let auth_data = AuthenticationData {
+                    auth_type: "solana_test".to_string(),
+                    credentials: creds,
+                    network: "devnet".to_string(),
+                };
 
-            let mut creds = HashMap::new();
-            creds.insert("username".to_string(), "test_user".to_string());
-            creds.insert("address".to_string(), "0xabcd".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "creds_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
+                let signer_result = factory.create_signer(auth_data).await;
+                assert!(signer_result.is_ok());
 
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
-
-            let signer = signer_result.unwrap();
-            // For mock signer, just verify it supports the expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
-
-        #[tokio::test]
-        async fn test_full_workflow_with_custom_auth_data() {
-            let mut factory = CompositeSignerFactory::new();
-
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["custom_data_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("custom_data_test".to_string()),
-                mock_signer_factory,
-            );
-
-            factory.register_provider(provider);
-
-            let mut creds = HashMap::new();
-            creds.insert("address".to_string(), "custom_0x456".to_string());
-            creds.insert("metadata".to_string(), "test_meta".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "custom_data_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
-
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
-
-            let signer = signer_result.unwrap();
-            // For mock signer, just verify it supports the expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
-
-        #[tokio::test]
-        async fn test_full_workflow_with_error_signer() {
-            let mut factory = CompositeSignerFactory::new();
-
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["error_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("error_test".to_string()),
-                mock_signer_factory,
-            );
-
-            factory.register_provider(provider);
-
-            let mut creds = HashMap::new();
-            creds.insert("address".to_string(), "error".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "error_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
-
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
-
-            let _signer = signer_result.unwrap();
-            // Test completed - the mock signer was created successfully
-        }
-
-        #[tokio::test]
-        async fn test_full_workflow_evm_client() {
-            let mut factory = CompositeSignerFactory::new();
-
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["evm_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("evm_test".to_string()),
-                mock_signer_factory,
-            );
-
-            factory.register_provider(provider);
-
-            let mut creds = HashMap::new();
-            creds.insert("address".to_string(), "0xtest".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "evm_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
-
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
-
-            let signer = signer_result.unwrap();
-            // For mock signer, just verify it supports the expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
-
-        #[tokio::test]
-        async fn test_full_workflow_solana_client() {
-            let mut factory = CompositeSignerFactory::new();
-
-            let mock_signer_factory =
-                Box::new(MockSignerFactory::new(vec!["solana_test".to_string()]));
-            let provider = AuthProvider::new(
-                AuthProviderType::Custom("solana_test".to_string()),
-                mock_signer_factory,
-            );
-
-            factory.register_provider(provider);
-
-            let mut creds = HashMap::new();
-            creds.insert("address".to_string(), "solana_addr".to_string());
-            let auth_data = AuthenticationData {
-                auth_type: "solana_test".to_string(),
-                credentials: creds,
-                network: "devnet".to_string(),
-            };
-
-            let signer_result = factory.create_signer(auth_data).await;
-            assert!(signer_result.is_ok());
-
-            let signer = signer_result.unwrap();
-            // For mock signer, just verify it supports the expected blockchain types
-            assert!(signer.supports_solana() || signer.supports_evm());
-        }
+                let signer = signer_result.unwrap();
+                // For mock signer, just verify it supports the expected blockchain types
+                assert!(signer.supports_solana() || signer.supports_evm());
+            }
+            */ // End of commented out tests
     }
 }

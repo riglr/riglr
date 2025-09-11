@@ -13,6 +13,7 @@ use chrono::Utc;
 use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
 
 /// Binance WebSocket stream implementation
+#[derive(Debug)]
 pub struct BinanceStream {
     /// Stream configuration
     config: BinanceConfig,
@@ -332,13 +333,20 @@ impl BinanceStream {
         let stream_name_clone = stream_name.clone();
         let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            while let Some(event) = internal_rx.recv().await {
-                if let Some(ref metrics) = metrics_clone {
-                    metrics
-                        .record_stream_event(&stream_name_clone, 0.0, 0)
-                        .await;
+            loop {
+                let recv_result = internal_rx.recv().await;
+                if let Some(event) = recv_result {
+                    if let Some(ref metrics) = metrics_clone {
+                        let metrics_result = metrics
+                            .record_stream_event(&stream_name_clone, 0.0, 0)
+                            .await;
+                        let _ = metrics_result;
+                    }
+                    let send_result = event_tx.send(event);
+                    let _ = send_result;
+                } else {
+                    break;
                 }
-                let _ = event_tx.send(event);
             }
         });
 
@@ -352,16 +360,16 @@ impl BinanceStream {
                 move || {
                     let url = url.clone();
                     Box::pin(async move {
-                        tokio_tungstenite::connect_async(&url)
-                            .await
-                            .map(|(ws, _)| ws)
-                            .map_err(|e| {
-                                Box::new(std::io::Error::new(
-                                    std::io::ErrorKind::ConnectionRefused,
-                                    format!("Failed to connect to Binance: {}", e),
-                                ))
-                                    as Box<dyn std::error::Error + Send + Sync>
-                            })
+                        let connect_result = tokio_tungstenite::connect_async(&url).await;
+                        let map_result = connect_result.map(|(ws, _)| ws);
+                        let final_result = map_result.map_err(|e| {
+                            Box::new(std::io::Error::new(
+                                std::io::ErrorKind::ConnectionRefused,
+                                format!("Failed to connect to Binance: {}", e),
+                            ))
+                                as Box<dyn std::error::Error + Send + Sync>
+                        });
+                        final_result
                     })
                 },
                 |_write| {
@@ -378,7 +386,8 @@ impl BinanceStream {
             .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
             .build();
 
-            connector.run().await;
+            let run_result = connector.run().await;
+            let _run_result = run_result;
         });
 
         Ok(())

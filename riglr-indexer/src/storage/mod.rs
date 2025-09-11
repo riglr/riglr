@@ -192,6 +192,7 @@ pub async fn create_store(config: &StorageConfig) -> IndexerResult<Box<dyn DataS
 }
 
 /// Event aggregation helpers
+#[derive(Debug)]
 pub struct EventAggregator;
 
 impl EventAggregator {

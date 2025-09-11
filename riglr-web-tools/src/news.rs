@@ -30,6 +30,7 @@ pub trait SentimentAnalyzer: Send + Sync {
 }
 
 /// Default lexicon-based sentiment analyzer
+#[derive(Debug)]
 pub struct LexiconSentimentAnalyzer {
     /// Positive words with their weights
     positive_words: Vec<(&'static str, f64)>,
@@ -242,7 +243,8 @@ impl LexiconSentimentAnalyzer {
         ];
 
         for (pattern, contribution) in &phrase_patterns {
-            if let Ok(re) = Regex::new(pattern) {
+            let regex_result = Regex::new(pattern);
+            if let Ok(re) = regex_result {
                 for matched in re.find_iter(full_text) {
                     key_phrases.push(SentimentPhrase {
                         phrase: matched.as_str().to_string(),
@@ -852,7 +854,8 @@ pub async fn monitor_breaking_news(
 
     // Check each keyword for breaking news
     for keyword in keywords {
-        match detect_breaking_news(&client, &config, &keyword).await {
+        let breaking_news_result = detect_breaking_news(&client, &config, &keyword).await;
+        match breaking_news_result {
             Ok(mut keyword_alerts) => {
                 alerts.append(&mut keyword_alerts);
             }
@@ -903,7 +906,7 @@ pub async fn analyze_market_sentiment(
     let recent_news = if let Some(assets) = &asset_filter {
         let mut all_news = Vec::new();
         for asset in assets {
-            match get_crypto_news(
+            let news_result = get_crypto_news(
                 context,
                 asset.clone(),
                 time_window.clone(),
@@ -911,8 +914,8 @@ pub async fn analyze_market_sentiment(
                 Some(70),    // Higher credibility for sentiment analysis
                 Some(false), // Don't need full analysis
             )
-            .await
-            {
+            .await;
+            match news_result {
                 Ok(result) => all_news.extend(result.articles),
                 Err(e) => warn!("Failed to get news for {}: {}", asset, e),
             }
@@ -963,10 +966,11 @@ async fn query_newsapi(
     let mut headers = std::collections::HashMap::new();
     headers.insert("X-Api-Key".to_string(), config.newsapi_key.clone());
 
-    let resp_text = client
+    let response_result = client
         .get_with_params_and_headers(&url, &params, headers)
-        .await
-        .map_err(|e| WebToolError::Api(format!("NewsAPI request failed: {}", e)))?;
+        .await;
+    let resp_text =
+        response_result.map_err(|e| WebToolError::Api(format!("NewsAPI request failed: {}", e)))?;
 
     // Parse JSON and map to NewsArticle
     let json: serde_json::Value = serde_json::from_str(&resp_text)
@@ -1095,9 +1099,8 @@ async fn query_cryptopanic(
     params.insert("public".to_string(), "true".to_string());
     params.insert("filter".to_string(), "rising".to_string());
 
-    let resp_text = client
-        .get_with_params(base, &params)
-        .await
+    let response_result = client.get_with_params(base, &params).await;
+    let resp_text = response_result
         .map_err(|e| WebToolError::Api(format!("CryptoPanic request failed: {}", e)))?;
 
     let json: serde_json::Value = serde_json::from_str(&resp_text)
@@ -1543,7 +1546,8 @@ fn hash64(s: &str) -> u64 {
 
 async fn analyze_trending_patterns(articles: &[NewsArticle]) -> crate::error::Result<NewsInsights> {
     // Similar to analyze_news_collection but with trending-specific logic
-    analyze_news_collection(articles).await
+    let insights_result = analyze_news_collection(articles).await;
+    insights_result
 }
 
 async fn detect_breaking_news(

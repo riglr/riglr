@@ -22,6 +22,7 @@ pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");
 
 /// Raydium CPMM event parser
+#[derive(Debug)]
 pub struct RaydiumCpmmEventParser {
     inner: GenericEventParser,
 }
@@ -71,7 +72,7 @@ impl RaydiumCpmmEventParser {
 
     /// Parse swap log event
     fn parse_swap_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the swap event using borsh deserialization
@@ -88,7 +89,7 @@ impl RaydiumCpmmEventParser {
 
     /// Parse deposit log event
     fn parse_deposit_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the deposit event using borsh deserialization
@@ -108,8 +109,8 @@ impl RaydiumCpmmEventParser {
 
     /// Parse swap base input instruction event
     fn parse_swap_base_input_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
@@ -153,8 +154,8 @@ impl RaydiumCpmmEventParser {
 
     /// Parse swap base output instruction event
     fn parse_swap_base_output_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
@@ -196,8 +197,8 @@ impl RaydiumCpmmEventParser {
 
     /// Parse deposit instruction event
     fn parse_deposit_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 8 {
@@ -307,14 +308,14 @@ impl ProtocolParser for RaydiumCpmmEventParser {
     }
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(params)
     }

@@ -15,6 +15,22 @@ pub struct StreamingToolWorker {
     event_task: Option<JoinHandle<StreamResult<()>>>,
 }
 
+impl std::fmt::Debug for StreamingToolWorker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StreamingToolWorker")
+            .field("worker_id", &self.worker_id)
+            .field("stream_manager", &"Arc<StreamManager>")
+            .field(
+                "event_task",
+                &match self.event_task {
+                    Some(_) => "Some(JoinHandle<StreamResult<()>>)",
+                    None => "None",
+                },
+            )
+            .finish()
+    }
+}
+
 impl StreamingToolWorker {
     /// Create a new streaming tool worker
     pub fn new(worker_id: String, stream_manager: Arc<StreamManager>) -> Self {

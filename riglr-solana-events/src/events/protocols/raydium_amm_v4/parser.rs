@@ -31,6 +31,7 @@ pub const RAYDIUM_AMM_V4_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 
 /// Raydium AMM V4 event parser
+#[derive(Debug)]
 pub struct RaydiumAmmV4EventParser {
     inner: GenericEventParser,
 }
@@ -115,7 +116,7 @@ impl RaydiumAmmV4EventParser {
     ///
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
-    fn empty_parse(_data: &[u8], _metadata: SolanaEventMetadata) -> ParseResult<Box<dyn Event>> {
+    fn empty_parse(_data: &'_ [u8], _metadata: SolanaEventMetadata) -> ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidInstructionType(
             "Raydium AMM V4 does not emit events through inner instructions".to_string(),
         ))
@@ -123,8 +124,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse swap base input instruction event
     fn parse_swap_base_input_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 16, "RaydiumAmmV4 swap base input instruction")?;
@@ -165,8 +166,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse swap base output instruction event
     fn parse_swap_base_output_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 16, "RaydiumAmmV4 swap base output instruction")?;
@@ -205,8 +206,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse deposit instruction event
     fn parse_deposit_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 24, "RaydiumAmmV4 deposit instruction")?;
@@ -246,8 +247,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse initialize2 instruction event
     fn parse_initialize2_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 25 {
@@ -313,8 +314,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse withdraw instruction event
     fn parse_withdraw_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 8 {
@@ -366,8 +367,8 @@ impl RaydiumAmmV4EventParser {
 
     /// Parse withdraw PNL instruction event
     fn parse_withdraw_pnl_instruction(
-        _data: &[u8],
-        accounts: &[Pubkey],
+        _data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if accounts.len() < 17 {
@@ -479,14 +480,14 @@ impl ProtocolParser for RaydiumAmmV4EventParser {
     }
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(params)
     }

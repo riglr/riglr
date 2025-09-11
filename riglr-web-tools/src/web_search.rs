@@ -378,13 +378,13 @@ pub async fn search_web_with_context(
         })?;
 
     // Parse search results
-    let results = parse_exa_search_response(&response, &query)
-        .await
+    let parse_result = parse_exa_search_response(&response, &query).await;
+    let results = parse_result
         .map_err(|e| WebToolError::Config(format!("Failed to parse search response: {}", e)))?;
 
     // Perform additional analysis
-    let insights = analyze_search_results(&results)
-        .await
+    let analysis_result = analyze_search_results(&results).await;
+    let insights = analysis_result
         .map_err(|e| WebToolError::Config(format!("Failed to analyze results: {}", e)))?;
 
     let search_result = WebSearchResult {
@@ -396,9 +396,12 @@ pub async fn search_web_with_context(
             returned_results: results.len() as u32,
             execution_time_ms: 1500, // Would measure actual time
             filtered: domain_filter.is_some() || date_filter.is_some(),
-            related_queries: generate_related_queries(&query).await.map_err(|e| {
-                WebToolError::Config(format!("Failed to generate related queries: {}", e))
-            })?,
+            related_queries: {
+                let related_result = generate_related_queries(&query).await;
+                related_result.map_err(|e| {
+                    WebToolError::Config(format!("Failed to generate related queries: {}", e))
+                })?
+            },
             top_domains: extract_top_domains(&results),
         },
         insights,
@@ -502,13 +505,13 @@ pub async fn find_similar_pages(
         })?;
 
     // Parse results
-    let similar_pages = parse_similar_pages_response(&response)
-        .await
+    let parse_result = parse_similar_pages_response(&response).await;
+    let similar_pages = parse_result
         .map_err(|e| WebToolError::Config(format!("Failed to parse similar pages: {}", e)))?;
 
     // Analyze similarity patterns
-    let similarity_metadata = analyze_similarity(&similar_pages)
-        .await
+    let analysis_result = analyze_similarity(&similar_pages).await;
+    let similarity_metadata = analysis_result
         .map_err(|e| WebToolError::Config(format!("Failed to analyze similarity: {}", e)))?;
 
     let result = SimilarPagesResult {
@@ -559,7 +562,9 @@ pub async fn summarize_web_content(
 
     // Process each URL
     for url in urls {
-        match extract_and_summarize_page(&client, &url, &summary_length, &focus_topics).await {
+        let extract_result =
+            extract_and_summarize_page(&client, &url, &summary_length, &focus_topics).await;
+        match extract_result {
             Ok(summary) => {
                 summaries.push(summary);
             }
@@ -653,8 +658,8 @@ pub async fn search_recent_news(
         })?;
 
     // Parse and enhance results for news context
-    let mut results = parse_exa_search_response(&response, &topic)
-        .await
+    let parse_result = parse_exa_search_response(&response, &topic).await;
+    let mut results = parse_result
         .map_err(|e| WebToolError::Config(format!("Failed to parse news response: {}", e)))?;
 
     // Sort by recency
@@ -665,8 +670,8 @@ pub async fn search_recent_news(
     });
 
     let insights = if include_analysis.unwrap_or(true) {
-        analyze_news_results(&results)
-            .await
+        let analysis_result = analyze_news_results(&results).await;
+        analysis_result
             .map_err(|e| WebToolError::Config(format!("Failed to analyze news: {}", e)))?
     } else {
         SearchInsights {
@@ -688,9 +693,12 @@ pub async fn search_recent_news(
             returned_results: results.len() as u32,
             execution_time_ms: 1200,
             filtered: true,
-            related_queries: generate_related_queries(&topic).await.map_err(|e| {
-                WebToolError::Config(format!("Failed to generate related queries: {}", e))
-            })?,
+            related_queries: {
+                let related_result = generate_related_queries(&topic).await;
+                related_result.map_err(|e| {
+                    WebToolError::Config(format!("Failed to generate related queries: {}", e))
+                })?
+            },
             top_domains: extract_top_domains(&results),
         },
         insights,
@@ -860,10 +868,9 @@ async fn extract_and_summarize_page(
     summary_length: &Option<String>,
     focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
-    let html = client
-        .get(url)
-        .await
-        .map_err(|e| WebToolError::Network(format!("Failed to fetch {}: {}", url, e)))?;
+    let get_result = client.get(url).await;
+    let html =
+        get_result.map_err(|e| WebToolError::Network(format!("Failed to fetch {}: {}", url, e)))?;
     let (title, clean_text, sentences, headings) = extract_main_content(&html, url);
 
     // Determine target summary length
@@ -969,7 +976,8 @@ fn extract_main_content(
     let mut best_text = String::default();
     let mut best_headings: Vec<String> = Vec::new();
     for css in candidates {
-        if let Ok(sel) = Selector::parse(css) {
+        let parse_result = Selector::parse(css);
+        if let Ok(sel) = parse_result {
             for node in document.select(&sel) {
                 let (text, headings) = extract_text_from_node(node);
                 if text.len() > best_text.len() {
@@ -1001,7 +1009,7 @@ fn extract_main_content(
 }
 
 /// Extract text and headings from an HTML element node
-fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
+fn extract_text_from_node(root: ElementRef<'_>) -> (String, Vec<String>) {
     let sel_exclude = [
         "script", "style", "noscript", "template", "header", "footer", "nav", "aside",
     ];
@@ -1033,7 +1041,7 @@ fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
 }
 
 /// Check if a node has any excluded ancestor elements
-fn has_excluded_ancestor(mut node: ElementRef, excluded: &[&str]) -> bool {
+fn has_excluded_ancestor(mut node: ElementRef<'_>, excluded: &[&str]) -> bool {
     while let Some(parent) = node.ancestors().find_map(ElementRef::wrap) {
         let name = parent.value().name();
         if excluded.contains(&name) {

@@ -15,6 +15,7 @@ riglr-config = { workspace = true  }
 riglr-core = { workspace = true  }
 riglr-evm-common = { workspace = true  }
 riglr-macros = { workspace = true  }
+rig-core = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }

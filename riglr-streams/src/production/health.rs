@@ -15,6 +15,7 @@ use tracing::{error, info, warn};
 use crate::core::{StreamHealth, StreamManager};
 
 /// Health monitor for streams
+#[derive(Debug)]
 pub struct HealthMonitor {
     /// Stream manager reference
     stream_manager: Arc<StreamManager>,

@@ -6,7 +6,8 @@ use crate::config::ProviderConfig;
 use crate::error::AuthError;
 use async_trait::async_trait;
 use riglr_core::signer::UnifiedSigner;
-use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+// use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+use crate::provider::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
 
 const MAGIC_PUBLISHABLE_KEY: &str = "MAGIC_PUBLISHABLE_KEY";
@@ -84,6 +85,7 @@ impl ProviderConfig for MagicConfig {
 }
 
 /// Magic.link provider implementation
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct MagicProvider {
     config: MagicConfig,
@@ -415,6 +417,7 @@ struct MagicRPCError {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test module has proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use std::collections::HashMap;
@@ -507,8 +510,11 @@ mod tests {
 
     #[test]
     fn test_magic_config_from_env_when_missing_publishable_key_should_return_err() {
-        std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
-        std::env::remove_var(MAGIC_SECRET_KEY);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+            std::env::remove_var(MAGIC_SECRET_KEY);
+        }
 
         let result = MagicConfig::from_env();
 
@@ -523,8 +529,11 @@ mod tests {
 
     #[test]
     fn test_magic_config_from_env_when_missing_secret_key_should_return_err() {
-        std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
-        std::env::remove_var(MAGIC_SECRET_KEY);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
+            std::env::remove_var(MAGIC_SECRET_KEY);
+        }
 
         let result = MagicConfig::from_env();
 
@@ -536,15 +545,21 @@ mod tests {
             _ => panic!("Expected ConfigError"),
         }
 
-        std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+        }
     }
 
     #[test]
     fn test_magic_config_from_env_when_basic_vars_present_should_return_ok() {
-        std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
-        std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
-        std::env::remove_var(MAGIC_API_URL);
-        std::env::remove_var(MAGIC_NETWORK);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
+            std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
+            std::env::remove_var(MAGIC_API_URL);
+            std::env::remove_var(MAGIC_NETWORK);
+        }
 
         let result = MagicConfig::from_env();
 
@@ -555,16 +570,22 @@ mod tests {
         assert_eq!(config.api_url, "https://api.magic.link");
         assert_eq!(config.network, "mainnet");
 
-        std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
-        std::env::remove_var(MAGIC_SECRET_KEY);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+            std::env::remove_var(MAGIC_SECRET_KEY);
+        }
     }
 
     #[test]
     fn test_magic_config_from_env_when_all_vars_present_should_return_ok() {
-        std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
-        std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
-        std::env::set_var(MAGIC_API_URL, "https://custom.api.url");
-        std::env::set_var(MAGIC_NETWORK, "testnet");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(MAGIC_PUBLISHABLE_KEY, "pk_test_123");
+            std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
+            std::env::set_var(MAGIC_API_URL, "https://custom.api.url");
+            std::env::set_var(MAGIC_NETWORK, "testnet");
+        }
 
         let result = MagicConfig::from_env();
 
@@ -575,16 +596,22 @@ mod tests {
         assert_eq!(config.api_url, "https://custom.api.url");
         assert_eq!(config.network, "testnet");
 
-        std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
-        std::env::remove_var(MAGIC_SECRET_KEY);
-        std::env::remove_var(MAGIC_API_URL);
-        std::env::remove_var(MAGIC_NETWORK);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+            std::env::remove_var(MAGIC_SECRET_KEY);
+            std::env::remove_var(MAGIC_API_URL);
+            std::env::remove_var(MAGIC_NETWORK);
+        }
     }
 
     #[test]
     fn test_magic_config_from_env_when_validation_fails_should_return_err() {
-        std::env::set_var(MAGIC_PUBLISHABLE_KEY, "");
-        std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe {
+            std::env::set_var(MAGIC_PUBLISHABLE_KEY, "");
+            std::env::set_var(MAGIC_SECRET_KEY, "sk_test_456");
+        }
 
         let result = MagicConfig::from_env();
 
@@ -596,8 +623,11 @@ mod tests {
             _ => panic!("Expected ConfigError"),
         }
 
-        std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
-        std::env::remove_var(MAGIC_SECRET_KEY);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            std::env::remove_var(MAGIC_PUBLISHABLE_KEY);
+            std::env::remove_var(MAGIC_SECRET_KEY);
+        }
     }
 
     #[test]

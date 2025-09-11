@@ -165,20 +165,8 @@ async fn main() -> Result<()> {
 }
 
 async fn create_agent(app_context: Arc<ApplicationContext>) -> Result<Arc<dyn Agent>> {
-    // 1. Discover all available tools
-    let mut toolset = Toolset::default();
-    
-    {{#if has_solana}}
-    toolset = toolset.with_solana_tools();
-    {{/if}}
-    
-    {{#if has_evm}}
-    toolset = toolset.with_evm_tools();
-    {{/if}}
-    
-    {{#if has_web_tools}}
-    toolset = toolset.with_web_tools();
-    {{/if}}
+    // 1. Discover all available tools with the application context
+    let toolset = Toolset::new(app_context.clone());
 
     // 2. Create the LLM "brain"
     let anthropic_client = AnthropicClient::new(
@@ -189,9 +177,8 @@ async fn create_agent(app_context: Arc<ApplicationContext>) -> Result<Arc<dyn Ag
     let debuggable_model = DebuggableCompletionModel::new(model);
 
     // 3. Build the agent
-    let agent = ToolCallingAgentBuilder::new(toolset, app_context)
-        .build(debuggable_model)
-        .await?;
+    let agent = ToolCallingAgentBuilder::new(toolset)
+        .build(debuggable_model)?;
 
     Ok(agent)
 }

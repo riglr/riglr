@@ -34,7 +34,8 @@ where
     loop {
         attempt += 1;
 
-        match operation() {
+        let operation_result = operation();
+        match operation_result {
             Ok(result) => return Ok(result),
             Err(error) => {
                 if attempt >= max_attempts {

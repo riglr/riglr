@@ -428,6 +428,7 @@ impl ByteSliceEventParser for PumpFunParser {
 }
 
 /// Factory for creating PumpFun parsers
+#[derive(Debug)]
 pub struct PumpFunParserFactory;
 
 impl PumpFunParserFactory {

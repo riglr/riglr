@@ -233,6 +233,7 @@ impl CircuitBreaker {
 }
 
 /// Connection manager with automatic reconnection
+#[derive(Debug)]
 pub struct ConnectionManager<T> {
     /// Circuit breaker for connection failure handling
     circuit_breaker: Arc<CircuitBreaker>,
@@ -371,7 +372,9 @@ where
                 if state == ConnectionState::Reconnecting || state == ConnectionState::Failed {
                     info!("Attempting automatic reconnection...");
 
-                    match circuit_breaker.attempt_connect(connect_fn.clone()).await {
+                    let connection_result =
+                        circuit_breaker.attempt_connect(connect_fn.clone()).await;
+                    match connection_result {
                         Ok(new_connection) => {
                             *connection.write().await = Some(new_connection);
 
@@ -394,7 +397,7 @@ where
                             // Wait before next attempt
                             let delay = circuit_breaker
                                 .calculate_backoff_delay(health_guard.consecutive_failures);
-                            sleep(delay).await;
+                            let _ = sleep(delay).await;
                         }
                     }
                 }
@@ -405,6 +408,7 @@ where
 
 /// Connection pool for managing multiple connections
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct ConnectionPool<T> {
     /// Collection of managed connections in the pool
     connections: Vec<ConnectionManager<T>>,
@@ -467,7 +471,8 @@ where
 
             let health = manager.health().await;
             if health.state == ConnectionState::Connected {
-                if let Some(connection) = manager.get_connection().await {
+                let connection_option = manager.get_connection().await;
+                if let Some(connection) = connection_option {
                     // Update round-robin index
                     self.current_index
                         .store((index + 1) % self.connections.len(), Ordering::Release);

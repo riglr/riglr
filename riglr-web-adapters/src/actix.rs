@@ -18,6 +18,14 @@ pub struct ActixRiglrAdapter {
     signer_factory: Arc<dyn SignerFactory>,
 }
 
+impl std::fmt::Debug for ActixRiglrAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ActixRiglrAdapter")
+            .field("signer_factory", &"Arc<dyn SignerFactory>")
+            .finish()
+    }
+}
+
 impl ActixRiglrAdapter {
     /// Create a new Actix adapter with the given signer factory
     pub fn new(signer_factory: Arc<dyn SignerFactory>) -> Self {
@@ -454,7 +462,7 @@ mod tests {
     }
 
     // Mock SignerFactory for testing
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct MockSignerFactory {
         supported_types: Vec<String>,
         should_fail_create_signer: bool,

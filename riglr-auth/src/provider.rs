@@ -3,7 +3,32 @@
 use crate::error::AuthResult;
 use async_trait::async_trait;
 use riglr_core::signer::UnifiedSigner;
-use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
+// NOTE: Temporarily defining these types locally to avoid circular dependency
+use std::collections::HashMap;
+
+/// Authentication data extracted from HTTP requests
+#[derive(Debug, Clone)]
+pub struct AuthenticationData {
+    /// Type of authentication (e.g., "privy", "web3auth", "magic")
+    pub auth_type: String,
+    /// Key-value pairs of authentication credentials
+    pub credentials: HashMap<String, String>,
+    /// Target blockchain network
+    pub network: String,
+}
+
+/// Abstract factory for creating signers from authentication data
+#[async_trait]
+pub trait SignerFactory: Send + Sync + std::fmt::Debug {
+    /// Create a signer from authentication data
+    async fn create_signer(
+        &self,
+        auth_data: AuthenticationData,
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get list of supported authentication types
+    fn supported_auth_types(&self) -> Vec<String>;
+}
 
 /// Authentication provider types
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +56,7 @@ impl AuthProviderType {
 }
 
 /// Main authentication provider wrapper
+#[derive(Debug)]
 pub struct AuthProvider {
     provider_type: AuthProviderType,
     inner: Box<dyn SignerFactory>,
@@ -143,10 +169,10 @@ mod tests {
         EvmSigner, MultiChainSigner, SignerBase, SolanaSigner,
     };
     use riglr_core::signer::UnifiedSigner;
-    use riglr_web_adapters::factory::AuthenticationData;
     use std::collections::HashMap;
 
     // Mock SignerFactory for testing
+    #[derive(Debug)]
     struct MockSignerFactory {
         auth_types: Vec<String>,
         should_error: bool,
@@ -491,6 +517,7 @@ mod tests {
     }
 
     // Mock AuthenticationProvider for testing default implementations
+    #[derive(Debug)]
     struct MockAuthProvider;
 
     #[async_trait]

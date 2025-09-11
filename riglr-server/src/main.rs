@@ -38,6 +38,7 @@ impl Agent for EchoAgent {
 }
 
 // A SignerFactory for local dev; creates a local signer using config.
+#[derive(Debug)]
 struct DevSignerFactory {
     config: Arc<Config>,
 }

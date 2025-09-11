@@ -168,10 +168,27 @@ impl From<Protocol> for ProtocolType {
 #[derive(Default)]
 pub struct EventParserRegistry {
     /// Map of protocols to their respective event parsers
-    parsers: HashMap<Protocol, Arc<dyn EventParser<Input = SolanaTransactionInput>>>,
+    parsers: HashMap<
+        Protocol,
+        Arc<dyn EventParser<Input = SolanaTransactionInput> + Send + Sync + 'static>,
+    >,
     /// Map of program IDs to their respective event parsers for fast lookup
-    program_id_to_parser:
-        HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser<Input = SolanaTransactionInput>>>,
+    program_id_to_parser: HashMap<
+        solana_sdk::pubkey::Pubkey,
+        Arc<dyn EventParser<Input = SolanaTransactionInput> + Send + Sync + 'static>,
+    >,
+}
+
+impl std::fmt::Debug for EventParserRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventParserRegistry")
+            .field("parsers", &format!("{} parsers", self.parsers.len()))
+            .field(
+                "program_id_to_parser",
+                &format!("{} program mappings", self.program_id_to_parser.len()),
+            )
+            .finish()
+    }
 }
 
 impl EventParserRegistry {
@@ -187,7 +204,7 @@ impl EventParserRegistry {
     pub fn add_parser(
         &mut self,
         protocol: Protocol,
-        parser: Arc<dyn EventParser<Input = SolanaTransactionInput>>,
+        parser: Arc<dyn EventParser<Input = SolanaTransactionInput> + Send + Sync + 'static>,
     ) {
         self.parsers.insert(protocol, parser);
     }
@@ -196,7 +213,7 @@ impl EventParserRegistry {
     pub fn get_parser(
         &self,
         protocol: &Protocol,
-    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput>>> {
+    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput> + Send + Sync + 'static>> {
         self.parsers.get(protocol)
     }
 
@@ -204,14 +221,14 @@ impl EventParserRegistry {
     pub fn get_parser_for_program(
         &self,
         program_id: &solana_sdk::pubkey::Pubkey,
-    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput>>> {
+    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput> + Send + Sync + 'static>> {
         self.program_id_to_parser.get(program_id)
     }
 
     /// Parse events from inner instruction using the appropriate parser
-    pub async fn parse_events_from_inner_instruction(
+    pub async fn parse_events_from_inner_instruction<'a>(
         &self,
-        params: InnerInstructionParseParams<'_>,
+        params: InnerInstructionParseParams<'a>,
     ) -> Vec<Box<dyn Event>> {
         // Convert to owned params
         let owned_params = OwnedInnerInstructionParseParams {
@@ -227,7 +244,8 @@ impl EventParserRegistry {
         // Try to identify the program and use the appropriate parser
         for parser in self.parsers.values() {
             if parser.can_parse(&input) {
-                if let Ok(events) = parser.parse(input.clone()).await {
+                let parse_result = parser.parse(input.clone()).await;
+                if let Ok(events) = parse_result {
                     if !events.is_empty() {
                         return events;
                     }
@@ -238,9 +256,9 @@ impl EventParserRegistry {
     }
 
     /// Parse events from instruction using the appropriate parser
-    pub async fn parse_events_from_instruction(
+    pub async fn parse_events_from_instruction<'a>(
         &self,
-        params: InstructionParseParams<'_>,
+        params: InstructionParseParams<'a>,
     ) -> Vec<Box<dyn Event>> {
         // Convert to owned params
         let owned_params = OwnedInstructionParseParams {
@@ -257,7 +275,8 @@ impl EventParserRegistry {
         // Try each parser until one succeeds
         for parser in self.parsers.values() {
             if parser.can_parse(&input) {
-                if let Ok(events) = parser.parse(input.clone()).await {
+                let parse_result = parser.parse(input.clone()).await;
+                if let Ok(events) = parse_result {
                     if !events.is_empty() {
                         return events;
                     }
@@ -383,9 +402,9 @@ mod tests {
             self.program_ids.clone()
         }
 
-        fn parse_events_from_instruction(
+        fn parse_events_from_instruction<'a>(
             &self,
-            _params: &InstructionParseParams,
+            _params: &InstructionParseParams<'a>,
         ) -> Vec<Box<dyn Event>> {
             if self.returns_events {
                 vec![Box::new(MockEvent::default())]
@@ -394,9 +413,9 @@ mod tests {
             }
         }
 
-        fn parse_events_from_inner_instruction(
+        fn parse_events_from_inner_instruction<'a>(
             &self,
-            _params: &InnerInstructionParseParams,
+            _params: &InnerInstructionParseParams<'a>,
         ) -> Vec<Box<dyn Event>> {
             if self.returns_events {
                 vec![Box::new(MockEvent::default())]

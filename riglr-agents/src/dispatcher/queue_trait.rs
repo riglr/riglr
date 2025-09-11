@@ -13,7 +13,7 @@ use std::time::Duration;
 /// allowing for different implementations (Redis, RabbitMQ, NATS, etc.)
 /// while maintaining a consistent interface for the dispatcher.
 #[async_trait]
-pub trait DistributedTaskQueue: Send + Sync {
+pub trait DistributedTaskQueue: Send + Sync + std::fmt::Debug {
     /// Dispatch a task to a remote agent and wait for the response.
     ///
     /// # Arguments

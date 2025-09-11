@@ -125,6 +125,21 @@ pub struct ParsingPipeline {
     output_receiver: mpsc::UnboundedReceiver<ParsingOutput>,
 }
 
+impl std::fmt::Debug for ParsingPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParsingPipeline")
+            .field("config", &self.config)
+            .field("batch_parser", &"BatchEventParser { ... }")
+            .field(
+                "semaphore",
+                &format!("Semaphore({})", self.semaphore.available_permits()),
+            )
+            .field("output_sender", &"UnboundedSender { ... }")
+            .field("output_receiver", &"UnboundedReceiver { ... }")
+            .finish()
+    }
+}
+
 impl ParsingPipeline {
     /// Create a new parsing pipeline
     pub fn new(config: ParsingPipelineConfig) -> Self {
@@ -342,6 +357,15 @@ pub enum PipelineError {
 pub struct ParsingPipelineBuilder {
     config: ParsingPipelineConfig,
     parsers: Vec<Arc<dyn ByteSliceEventParser>>,
+}
+
+impl std::fmt::Debug for ParsingPipelineBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParsingPipelineBuilder")
+            .field("config", &self.config)
+            .field("parsers", &format!("{} parsers", self.parsers.len()))
+            .finish()
+    }
 }
 
 impl ParsingPipelineBuilder {

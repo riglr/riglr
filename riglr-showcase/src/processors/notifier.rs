@@ -174,8 +174,18 @@ impl NotificationRouter {
     }
 }
 
+impl std::fmt::Debug for NotificationRouter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NotificationRouter")
+            .field("channels", &self.channels.keys().collect::<Vec<_>>())
+            .field("routing_rules", &self.routing_rules)
+            .field("default_channel", &self.default_channel)
+            .finish()
+    }
+}
+
 /// Routing rule for determining which channels to use
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RoutingRule {
     /// Human-readable name for this rule
     pub name: String,
@@ -202,7 +212,7 @@ impl RoutingRule {
 }
 
 /// Conditions for routing decisions
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum RoutingCondition {
     /// Always matches any output
     Always,
@@ -245,7 +255,7 @@ impl RoutingCondition {
 }
 
 /// Result of a notification attempt
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NotificationResult {
     /// Name of the channel that was used for the notification
     pub channel: String,
@@ -271,6 +281,7 @@ pub trait NotificationChannel: Send + Sync {
 }
 
 /// Discord webhook notification channel
+#[derive(Debug)]
 pub struct DiscordChannel {
     /// Discord webhook URL for sending messages
     #[allow(dead_code)]
@@ -404,6 +415,7 @@ impl NotificationChannel for DiscordChannel {
 }
 
 /// Telegram bot notification channel
+#[derive(Debug)]
 pub struct TelegramChannel {
     /// Telegram bot token for API authentication
     #[allow(dead_code)]
@@ -534,6 +546,7 @@ impl NotificationChannel for TelegramChannel {
 }
 
 /// Generic webhook notification channel
+#[derive(Debug)]
 pub struct WebhookChannel {
     /// Human-readable name for this webhook
     name: String,
@@ -648,6 +661,7 @@ impl NotificationChannel for WebhookChannel {
 }
 
 /// Console/log notification channel for debugging
+#[derive(Debug)]
 pub struct ConsoleChannel {
     /// Whether to use ANSI color codes in console output
     use_colors: bool,

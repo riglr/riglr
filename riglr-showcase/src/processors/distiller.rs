@@ -15,6 +15,7 @@ use serde_json::json;
 ///
 /// Uses a separate LLM call to summarize complex tool outputs.
 /// This pattern is useful for making technical outputs more accessible to users.
+#[derive(Debug)]
 pub struct DistillationProcessor {
     model: String,
     max_tokens: Option<u32>,
@@ -112,7 +113,8 @@ Please provide a concise summary of this tool output:"#,
         let agent = builder.build();
 
         // Make the completion request
-        match agent.prompt(prompt).await {
+        let result = agent.prompt(prompt).await;
+        match result {
             Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("OpenAI API error: {}", e)),
         }
@@ -146,7 +148,8 @@ Please provide a concise summary of this tool output:"#,
         let agent = builder.build();
 
         // Make the completion request
-        match agent.prompt(prompt).await {
+        let result = agent.prompt(prompt).await;
+        match result {
             Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("Anthropic API error: {}", e)),
         }
@@ -171,7 +174,8 @@ Please provide a concise summary of this tool output:"#,
         let agent = builder.build();
 
         // Make the completion request
-        match agent.prompt(prompt).await {
+        let result = agent.prompt(prompt).await;
+        match result {
             Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("Gemini API error: {}", e)),
         }
@@ -183,7 +187,8 @@ impl OutputProcessor for DistillationProcessor {
     async fn process(&self, input: ToolOutput) -> Result<ProcessedOutput> {
         let summary = if input.success {
             // Try to distill successful outputs
-            match self.call_llm(&input).await {
+            let llm_result = self.call_llm(&input).await;
+            match llm_result {
                 Ok(summary) => Some(summary),
                 Err(e) => {
                     // If distillation fails, log the error but don't fail the entire process
@@ -230,6 +235,7 @@ impl OutputProcessor for DistillationProcessor {
 }
 
 /// Smart distiller that chooses different strategies based on output type
+#[derive(Debug)]
 pub struct SmartDistiller {
     processors: Vec<DistillationProcessor>,
 }
@@ -261,7 +267,8 @@ impl SmartDistiller {
 impl OutputProcessor for SmartDistiller {
     async fn process(&self, input: ToolOutput) -> Result<ProcessedOutput> {
         let processor = self.choose_processor(&input);
-        processor.process(input).await
+        let result = processor.process(input).await;
+        result
     }
 
     fn name(&self) -> &str {
@@ -278,6 +285,7 @@ impl OutputProcessor for SmartDistiller {
 }
 
 /// Mock distiller for testing without API calls
+#[derive(Debug)]
 pub struct MockDistiller {
     responses: std::collections::HashMap<String, String>,
 }

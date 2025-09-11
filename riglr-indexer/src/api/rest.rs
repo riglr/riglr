@@ -22,8 +22,16 @@ pub struct RestHandler {
     context: Arc<ServiceContext>,
 }
 
+impl std::fmt::Debug for RestHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RestHandler")
+            .field("context", &"Arc<ServiceContext>")
+            .finish()
+    }
+}
+
 /// API response wrapper
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ApiResponse<T> {
     /// Whether the request was successful
     pub success: bool,
@@ -85,7 +93,7 @@ pub struct EventsQueryParams {
 }
 
 /// Event statistics response
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct EventStatsResponse {
     /// Total number of events indexed
     pub total_events: u64,
@@ -98,7 +106,7 @@ pub struct EventStatsResponse {
 }
 
 /// Service health response
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct HealthResponse {
     /// Overall health status (healthy/unhealthy/degraded)
     pub status: String,
@@ -113,7 +121,7 @@ pub struct HealthResponse {
 }
 
 /// Component status
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ComponentStatus {
     /// Whether the component is healthy
     pub healthy: bool,

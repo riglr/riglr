@@ -614,6 +614,7 @@ pub async fn get_influencer_mentions(
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test helper functions with proper inline SAFETY documentation - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
@@ -623,7 +624,11 @@ mod tests {
     #[test]
     fn test_lunarcrush_config_default_without_env_var() {
         // Remove the env var if it exists
-        env::remove_var(LUNARCRUSH_API_KEY);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::remove_var(LUNARCRUSH_API_KEY);
+        }
 
         let config = LunarCrushConfig::default();
         assert_eq!(config.api_key, "");
@@ -633,14 +638,22 @@ mod tests {
 
     #[test]
     fn test_lunarcrush_config_default_with_env_var() {
-        env::set_var(LUNARCRUSH_API_KEY, "test_api_key");
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::set_var(LUNARCRUSH_API_KEY, "test_api_key");
+        }
 
         let config = LunarCrushConfig::default();
         assert_eq!(config.api_key, "test_api_key");
         assert_eq!(config.base_url, "https://api.lunarcrush.com/v2");
         assert_eq!(config.rate_limit_per_minute, 60);
 
-        env::remove_var(LUNARCRUSH_API_KEY);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::remove_var(LUNARCRUSH_API_KEY);
+        }
     }
 
     #[test]
@@ -1007,7 +1020,11 @@ mod tests {
     // Tests for create_lunarcrush_client function
     #[tokio::test]
     async fn test_create_lunarcrush_client_missing_api_key() {
-        env::remove_var(LUNARCRUSH_API_KEY);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::remove_var(LUNARCRUSH_API_KEY);
+        }
 
         let result = create_lunarcrush_client().await;
         assert!(result.is_err());
@@ -1021,12 +1038,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_lunarcrush_client_with_empty_api_key() {
-        env::set_var(LUNARCRUSH_API_KEY, "");
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::set_var(LUNARCRUSH_API_KEY, "");
+        }
 
         let result = create_lunarcrush_client().await;
         assert!(result.is_err());
 
-        env::remove_var(LUNARCRUSH_API_KEY);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::remove_var(LUNARCRUSH_API_KEY);
+        }
     }
 
     // Test timeframe validation in various functions

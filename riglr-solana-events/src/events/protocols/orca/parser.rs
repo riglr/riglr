@@ -31,6 +31,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 /// Orca Whirlpool event parser
+#[derive(Debug)]
 pub struct OrcaEventParser {
     program_ids: Vec<Pubkey>,
     inner_instruction_configs: HashMap<&'static str, Vec<GenericEventParseConfig>>,
@@ -140,7 +141,7 @@ impl ProtocolParser for OrcaEventParser {
 
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -171,7 +172,7 @@ impl ProtocolParser for OrcaEventParser {
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 

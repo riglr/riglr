@@ -1082,6 +1082,7 @@ pub struct ChainInfo {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Unsafe blocks required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use async_trait::async_trait;
@@ -1545,7 +1546,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_lifi_client_when_no_api_key_should_return_default_client() {
-        std::env::remove_var(LIFI_API_KEY);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(LIFI_API_KEY);
+        }
 
         let result = create_lifi_client().await;
 
@@ -1554,14 +1559,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_lifi_client_when_api_key_present_should_use_key() {
-        std::env::set_var(LIFI_API_KEY, "test-api-key");
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(LIFI_API_KEY, "test-api-key");
+        }
 
         let result = create_lifi_client().await;
 
         assert!(result.is_ok());
 
         // Clean up
-        std::env::remove_var(LIFI_API_KEY);
+        // SAFETY: This is a test-only cleanup operation used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(LIFI_API_KEY);
+        }
     }
 
     #[tokio::test]

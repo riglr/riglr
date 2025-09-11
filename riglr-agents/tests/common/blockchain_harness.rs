@@ -14,7 +14,12 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
 };
-use solana_system_interface::instruction as system_instruction;
+// NOTE: Using deprecated solana_sdk::system_instruction instead of solana_system_interface
+// to avoid Address vs Pubkey type mismatches and solana-instruction crate version conflicts.
+// The newer solana_system_interface requires Address types but our codebase uses Pubkey,
+// leading to compilation errors. This should be migrated in a broader dependency update.
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 // use solana_transaction_status::UiTransactionEncoding;
 use std::{
     process::{Child, Command, Stdio},
@@ -175,6 +180,23 @@ pub struct BlockchainTestHarness {
     client: Arc<RpcClient>,
 }
 
+impl std::fmt::Debug for BlockchainTestHarness {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlockchainTestHarness")
+            .field("rpc_url", &self.rpc_url)
+            .field("websocket_url", &self.websocket_url)
+            .field(
+                "funded_keypairs",
+                &format!("{} keypairs", self.funded_keypairs.len()),
+            )
+            .field("validator_process", &self.validator_process.is_some())
+            .field("rpc_port", &self.rpc_port)
+            .field("websocket_port", &self.websocket_port)
+            .field("client", &"<RpcClient>")
+            .finish()
+    }
+}
+
 impl BlockchainTestHarness {
     /// Create a new blockchain test harness with default configuration.
     ///
@@ -230,12 +252,14 @@ impl BlockchainTestHarness {
             CommitmentConfig::confirmed(),
         ));
 
-        Self::wait_for_validator_ready(&client, config.startup_timeout).await?;
+        let ready_result = Self::wait_for_validator_ready(&client, config.startup_timeout).await;
+        ready_result?;
 
         // Create and fund test keypairs
-        let funded_keypairs =
+        let funded_keypairs_result =
             Self::create_and_fund_keypairs(&client, config.num_keypairs, config.funding_amount_sol)
-                .await?;
+                .await;
+        let funded_keypairs = funded_keypairs_result?;
 
         info!(
             "Blockchain test harness ready with {} funded keypairs",
@@ -473,10 +497,12 @@ impl BlockchainTestHarness {
         transaction.sign(&[from_keypair], recent_blockhash);
 
         // Send transaction
-        let signature = match self.client.send_transaction(&transaction) {
+        let transaction_result = self.client.send_transaction(&transaction);
+        let signature = match transaction_result {
             Ok(sig) => {
                 // Real transaction - try to confirm
-                if let Err(e) = self.client.confirm_transaction(&sig) {
+                let confirm_result = self.client.confirm_transaction(&sig);
+                if let Err(e) = confirm_result {
                     warn!(
                         "Transaction confirmation failed: {} - may be in mock mode",
                         e
@@ -616,10 +642,12 @@ impl BlockchainTestHarness {
         let mut retry_delay = Duration::from_millis(100);
 
         while start_time.elapsed() < timeout_duration {
-            match client.get_health() {
+            let health_result = client.get_health();
+            match health_result {
                 Ok(_) => {
                     // Additional check: try to get slot to ensure validator is processing
-                    if let Ok(slot) = client.get_slot() {
+                    let slot_result = client.get_slot();
+                    if let Ok(slot) = slot_result {
                         if slot > 0 {
                             info!("Validator ready at slot {}", slot);
                             return Ok(());
@@ -671,7 +699,8 @@ impl BlockchainTestHarness {
                     }
 
                     // Verify funding if possible
-                    if let Ok(balance) = client.get_balance(&keypair.pubkey()) {
+                    let balance_result = client.get_balance(&keypair.pubkey());
+                    if let Ok(balance) = balance_result {
                         if balance < funding_amount_lamports {
                             warn!("Keypair {} funded with {} lamports, expected {} - may be in mock mode", i, balance, funding_amount_lamports);
                         }
@@ -824,6 +853,7 @@ pub mod utils {
 }
 
 /// Builder for creating blockchain test scenarios.
+#[derive(Debug)]
 pub struct BlockchainScenarioBuilder {
     /// Funding amounts in SOL for each test wallet
     funding_amounts: Vec<f64>,
@@ -916,15 +946,15 @@ pub enum MockOperation {
 
 #[cfg(test)]
 mod tests {
-    use super::constants::*;
     use super::utils::*;
     use super::*;
     use solana_sdk::native_token::LAMPORTS_PER_SOL;
 
     #[tokio::test]
     async fn test_blockchain_harness_creation() {
-        let harness = BlockchainTestHarness::new().await.unwrap();
-        assert_eq!(harness.rpc_url(), TEST_RPC_URL);
+        let harness_result = BlockchainTestHarness::new().await;
+        let harness = harness_result.unwrap();
+        assert!(harness.rpc_url().starts_with("http://127.0.0.1:"));
         assert!(harness.get_funded_keypair(0).is_some());
         assert!(harness.get_funded_keypair(10).is_none()); // Out of bounds
     }

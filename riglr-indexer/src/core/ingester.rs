@@ -45,7 +45,7 @@ type EventSender = mpsc::UnboundedSender<Box<dyn Event>>;
 type EventReceiver = mpsc::UnboundedReceiver<Box<dyn Event>>;
 
 /// Event ingester that collects events from multiple sources
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EventIngester {
     /// Ingester configuration
     config: IngesterConfig,
@@ -192,7 +192,8 @@ impl EventIngester {
                             // This is where we would pull events from external sources
                             // For now, we'll create a mock event for testing
                             if context.config.features.experimental {
-                                if let Ok(()) = rate_limiter.check_rate_limit(&format!("worker_{}", worker_id)) {
+                                let rate_limit_result = rate_limiter.check_rate_limit(&format!("worker_{}", worker_id));
+                                if let Ok(()) = rate_limit_result {
                                     let mock_event = create_mock_solana_event();
 
                                     if let Err(e) = tx.send(mock_event) {
@@ -260,8 +261,9 @@ impl EventIngester {
                 }
 
                 // Check for shutdown
+                let state_result = context.state().await;
                 if matches!(
-                    context.state().await,
+                    state_result,
                     crate::core::ServiceState::Stopping | crate::core::ServiceState::Stopped
                 ) {
                     break;
@@ -282,12 +284,14 @@ impl EventIngester {
 
         // Collect events up to batch size
         while events.len() < batch_size {
-            match rx.try_recv() {
+            let recv_result = rx.try_recv();
+            match recv_result {
                 Ok(event) => events.push(event),
                 Err(mpsc::error::TryRecvError::Empty) => {
                     if events.is_empty() {
                         // Wait for at least one event
-                        match rx.recv().await {
+                        let recv_result = rx.recv().await;
+                        match recv_result {
                             Some(event) => events.push(event),
                             None => break, // Channel closed
                         }
@@ -316,7 +320,8 @@ impl EventIngester {
 
     /// Get ingestion statistics
     pub async fn stats(&self) -> IngestionStats {
-        self.stats.read().await.clone()
+        let stats = self.stats.read().await;
+        stats.clone()
     }
 }
 
@@ -500,7 +505,9 @@ fn create_mock_solana_event() -> Box<dyn Event> {
 }
 
 // Placeholder types that would be implemented properly with riglr-streams integration
+#[derive(Debug)]
 struct StreamManager;
+#[derive(Debug)]
 struct StreamManagerBuilder;
 #[allow(dead_code)]
 struct StreamManagerConfig {
@@ -541,6 +548,27 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use tokio::time::{sleep, timeout, Duration, Instant};
+
+    #[allow(unsafe_code)]
+    mod test_env_vars {
+        /// Helper function to set environment variables in tests without using string literals
+        pub fn set_test_env_var(key: &'static str, value: &str) {
+            // SAFETY: This is a test-only function used in isolated test environments
+            // where we control the threading and environment variable access patterns.
+            unsafe {
+                std::env::set_var(key, value);
+            }
+        }
+
+        /// Helper function to remove environment variables in tests without using string literals  
+        pub fn remove_test_env_var(key: &'static str) {
+            // SAFETY: This is a test-only function used in isolated test environments
+            // where we control the threading and environment variable access patterns.
+            unsafe {
+                std::env::remove_var(key);
+            }
+        }
+    }
 
     // Mock DataStore for testing
     struct MockDataStore {
@@ -969,7 +997,7 @@ mod tests {
     #[tokio::test]
     async fn test_initialize_streams_with_solana_env() {
         // Set environment variable for Solana
-        std::env::set_var(SOLANA_RPC_URL, "https://api.mainnet-beta.solana.com");
+        test_env_vars::set_test_env_var(SOLANA_RPC_URL, "https://api.mainnet-beta.solana.com");
 
         let config = IngesterConfig {
             workers: 1,
@@ -983,14 +1011,14 @@ mod tests {
         assert!(result.is_ok());
 
         // Clean up
-        std::env::remove_var(SOLANA_RPC_URL);
+        test_env_vars::remove_test_env_var(SOLANA_RPC_URL);
     }
 
     #[tokio::test]
     async fn test_initialize_streams_with_evm_env() {
         // Set environment variable for EVM chain
-        std::env::set_var(RPC_URL_1, "https://eth-mainnet.alchemyapi.io/v2/test");
-        std::env::set_var(RPC_URL_137, "https://polygon-rpc.com");
+        test_env_vars::set_test_env_var(RPC_URL_1, "https://eth-mainnet.alchemyapi.io/v2/test");
+        test_env_vars::set_test_env_var(RPC_URL_137, "https://polygon-rpc.com");
 
         let config = IngesterConfig {
             workers: 1,
@@ -1004,14 +1032,14 @@ mod tests {
         assert!(result.is_ok());
 
         // Clean up
-        std::env::remove_var(RPC_URL_1);
-        std::env::remove_var(RPC_URL_137);
+        test_env_vars::remove_test_env_var(RPC_URL_1);
+        test_env_vars::remove_test_env_var(RPC_URL_137);
     }
 
     #[tokio::test]
     async fn test_initialize_streams_with_invalid_chain_id() {
         // Set environment variable with invalid chain ID
-        std::env::set_var(RPC_URL_INVALID, "https://invalid-chain.com");
+        test_env_vars::set_test_env_var(RPC_URL_INVALID, "https://invalid-chain.com");
 
         let config = IngesterConfig {
             workers: 1,
@@ -1025,7 +1053,7 @@ mod tests {
         assert!(result.is_ok()); // Should not fail, just skip invalid entries
 
         // Clean up
-        std::env::remove_var(RPC_URL_INVALID);
+        test_env_vars::remove_test_env_var(RPC_URL_INVALID);
     }
 
     #[tokio::test]
@@ -1807,7 +1835,7 @@ mod tests {
     // Test environment variable edge cases
     #[tokio::test]
     async fn test_initialize_streams_empty_solana_url() {
-        std::env::set_var(SOLANA_RPC_URL, "");
+        test_env_vars::set_test_env_var(SOLANA_RPC_URL, "");
 
         let config = IngesterConfig {
             workers: 1,
@@ -1820,12 +1848,12 @@ mod tests {
         let result = ingester.initialize_streams().await;
         assert!(result.is_ok());
 
-        std::env::remove_var(SOLANA_RPC_URL);
+        test_env_vars::remove_test_env_var(SOLANA_RPC_URL);
     }
 
     #[tokio::test]
     async fn test_initialize_streams_rpc_url_prefix_but_no_suffix() {
-        std::env::set_var(RPC_URL_PREFIX_ONLY, "https://some-chain.com");
+        test_env_vars::set_test_env_var(RPC_URL_PREFIX_ONLY, "https://some-chain.com");
 
         let config = IngesterConfig {
             workers: 1,
@@ -1838,6 +1866,6 @@ mod tests {
         let result = ingester.initialize_streams().await;
         assert!(result.is_ok());
 
-        std::env::remove_var(RPC_URL_PREFIX_ONLY);
+        test_env_vars::remove_test_env_var(RPC_URL_PREFIX_ONLY);
     }
 }

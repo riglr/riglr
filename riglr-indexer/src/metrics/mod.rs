@@ -159,6 +159,7 @@ pub struct ErrorMetrics {
 }
 
 /// Metrics registry for storing and managing metrics
+#[derive(Debug)]
 pub struct MetricsRegistry {
     /// Stored metrics
     metrics: Arc<DashMap<String, Metric>>,

@@ -11,6 +11,7 @@ use crate::core::{MetricsCollector, Stream, StreamError, StreamHealth};
 use riglr_events_core::Event;
 
 /// Solana Geyser stream implementation using WebSocket
+#[derive(Debug)]
 pub struct SolanaGeyserStream {
     /// Stream configuration
     config: GeyserConfig,
@@ -223,13 +224,18 @@ impl SolanaGeyserStream {
         let stream_name_clone = stream_name.clone();
         let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            while let Some(event) = internal_rx.recv().await {
-                if let Some(ref metrics) = metrics_clone {
-                    metrics
-                        .record_stream_event(&stream_name_clone, 0.0, 0)
-                        .await;
+            loop {
+                let recv_result = internal_rx.recv().await;
+                if let Some(event) = recv_result {
+                    if let Some(ref metrics) = metrics_clone {
+                        metrics
+                            .record_stream_event(&stream_name_clone, 0.0, 0)
+                            .await;
+                    }
+                    let _ = event_tx.send(event);
+                } else {
+                    break;
                 }
-                let _ = event_tx.send(event);
             }
         });
 
@@ -243,13 +249,15 @@ impl SolanaGeyserStream {
                 move || {
                     let url = url.clone();
                     Box::pin(async move {
-                        connect_async(&url).await.map(|(ws, _)| ws).map_err(|e| {
+                        let connection_result = connect_async(&url).await;
+                        let result = connection_result.map(|(ws, _)| ws).map_err(|e| {
                             Box::new(std::io::Error::new(
                                 std::io::ErrorKind::ConnectionRefused,
                                 format!("Failed to connect to Solana Geyser: {}", e),
                             ))
                                 as Box<dyn std::error::Error + Send + Sync>
-                        })
+                        });
+                        result
                     })
                 },
                 |_write| {
@@ -260,7 +268,8 @@ impl SolanaGeyserStream {
             .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
             .build();
 
-            connector.run().await;
+            let run_result = connector.run().await;
+            run_result
         });
 
         Ok(())

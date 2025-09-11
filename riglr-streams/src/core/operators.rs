@@ -98,6 +98,7 @@ pub trait ComposableStream: Stream {
 impl<T> ComposableStream for T where T: Stream {}
 
 /// Stream that maps events through a transformation
+#[derive(Debug)]
 pub struct MappedStream<S, F> {
     inner: S,
     transform: Arc<F>,
@@ -126,11 +127,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -139,9 +142,14 @@ where
         let transform = self.transform.clone();
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                let transformed = (transform)(event);
-                let _ = tx.send(Arc::new(transformed));
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let transformed = (transform)(event);
+                    let _ = tx.send(Arc::new(transformed));
+                } else {
+                    break;
+                }
             }
         });
 
@@ -153,7 +161,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -162,6 +171,7 @@ where
 }
 
 /// Stream that filters events based on a predicate
+#[derive(Debug)]
 pub struct FilteredStream<S, F> {
     inner: S,
     predicate: Arc<F>,
@@ -190,11 +200,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -203,9 +215,14 @@ where
         let predicate = self.predicate.clone();
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                if (predicate)(event.as_ref()) {
-                    let _ = tx.send(event);
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    if (predicate)(event.as_ref()) {
+                        let _ = tx.send(event);
+                    }
+                } else {
+                    break;
                 }
             }
         });
@@ -218,7 +235,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -227,6 +245,7 @@ where
 }
 
 /// Stream that merges events from two streams
+#[derive(Debug)]
 pub struct MergedStream<S1, S2> {
     inner1: S1,
     inner2: S2,
@@ -253,14 +272,15 @@ where
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner1.start(config.0).await?;
-        self.inner2.start(config.1).await
+        let start_result = self.inner2.start(config.1).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
         let r1 = self.inner1.stop().await;
-        let r2 = self.inner2.stop().await;
+        let r2_result = self.inner2.stop().await;
         r1?;
-        r2
+        r2_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -328,6 +348,7 @@ where
 }
 
 /// Stream that batches events
+#[derive(Debug)]
 pub struct BatchedStream<S> {
     inner: S,
     batch_size: usize,
@@ -356,11 +377,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -409,7 +432,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -418,6 +442,7 @@ where
 }
 
 /// Stream that debounces events
+#[derive(Debug)]
 pub struct DebouncedStream<S> {
     inner: S,
     duration: Duration,
@@ -441,11 +466,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -469,7 +496,8 @@ where
                         }
                     }
                     _ = timer.tick() => {
-                        if let Some(event) = last_event.take() {
+                        let taken_event = last_event.take();
+                        if let Some(event) = taken_event {
                             let _ = tx.send(event);
                         }
                     }
@@ -485,7 +513,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -494,6 +523,7 @@ where
 }
 
 /// Stream that throttles events
+#[derive(Debug)]
 pub struct ThrottledStream<S> {
     inner: S,
     duration: Duration,
@@ -517,11 +547,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -532,11 +564,16 @@ where
         tokio::spawn(async move {
             let mut last_send = Instant::now();
 
-            while let Ok(event) = inner_rx.recv().await {
-                let now = Instant::now();
-                if now.duration_since(last_send) >= duration {
-                    let _ = tx.send(event);
-                    last_send = now;
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let now = Instant::now();
+                    if now.duration_since(last_send) >= duration {
+                        let _ = tx.send(event);
+                        last_send = now;
+                    }
+                } else {
+                    break;
                 }
             }
         });
@@ -549,7 +586,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -558,6 +596,7 @@ where
 }
 
 /// Stream that takes only N events
+#[derive(Debug)]
 pub struct TakeStream<S> {
     inner: S,
     count: Arc<AtomicUsize>,
@@ -586,11 +625,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -600,10 +641,15 @@ where
         let max_count = self.max_count;
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                let current = count.fetch_add(1, Ordering::SeqCst);
-                if current < max_count {
-                    let _ = tx.send(event);
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let current = count.fetch_add(1, Ordering::SeqCst);
+                    if current < max_count {
+                        let _ = tx.send(event);
+                    } else {
+                        break;
+                    }
                 } else {
                     break;
                 }
@@ -618,7 +664,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {
@@ -627,6 +674,7 @@ where
 }
 
 /// Stream that skips N events
+#[derive(Debug)]
 pub struct SkipStream<S> {
     inner: S,
     skip_count: Arc<AtomicUsize>,
@@ -655,11 +703,13 @@ where
     type Config = S::Config;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
-        self.inner.start(config).await
+        let start_result = self.inner.start(config).await;
+        start_result
     }
 
     async fn stop(&mut self) -> Result<(), StreamError> {
-        self.inner.stop().await
+        let stop_result = self.inner.stop().await;
+        stop_result
     }
 
     fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
@@ -669,12 +719,17 @@ where
         let target_skip = self.target_skip;
 
         tokio::spawn(async move {
-            while let Ok(event) = inner_rx.recv().await {
-                let current = skip_count.load(Ordering::SeqCst);
-                if current >= target_skip {
-                    let _ = tx.send(event);
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let current = skip_count.load(Ordering::SeqCst);
+                    if current >= target_skip {
+                        let _ = tx.send(event);
+                    } else {
+                        skip_count.fetch_add(1, Ordering::SeqCst);
+                    }
                 } else {
-                    skip_count.fetch_add(1, Ordering::SeqCst);
+                    break;
                 }
             }
         });
@@ -687,7 +742,8 @@ where
     }
 
     async fn health(&self) -> StreamHealth {
-        self.inner.health().await
+        let health_result = self.inner.health().await;
+        health_result
     }
 
     fn name(&self) -> &str {

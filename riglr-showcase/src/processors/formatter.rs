@@ -13,6 +13,7 @@ use std::collections::HashMap;
 ///
 /// Converts tool outputs into clean, readable Markdown format.
 /// Useful for documentation, reports, or display in Markdown-aware interfaces.
+#[derive(Debug)]
 pub struct MarkdownFormatter {
     include_metadata: bool,
     include_timing: bool,
@@ -198,6 +199,7 @@ impl OutputProcessor for MarkdownFormatter {
 }
 
 /// HTML formatter for tool outputs
+#[derive(Debug)]
 pub struct HtmlFormatter {
     css_classes: HashMap<String, String>,
     include_styles: bool,
@@ -365,6 +367,7 @@ impl OutputProcessor for HtmlFormatter {
 }
 
 /// JSON formatter that can restructure and clean up outputs
+#[derive(Debug)]
 pub struct JsonFormatter {
     pretty_print: bool,
     include_metadata: bool,
@@ -482,6 +485,14 @@ impl OutputProcessor for JsonFormatter {
 #[derive(Default)]
 pub struct MultiFormatProcessor {
     formats: Vec<Box<dyn OutputProcessor>>,
+}
+
+impl std::fmt::Debug for MultiFormatProcessor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MultiFormatProcessor")
+            .field("formats", &format!("{} formatters", self.formats.len()))
+            .finish()
+    }
 }
 
 impl MultiFormatProcessor {

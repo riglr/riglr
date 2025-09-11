@@ -86,6 +86,7 @@ impl<E> Window<E> {
 }
 
 /// Window manager for handling different window types
+#[derive(Debug)]
 pub struct WindowManager<E> {
     /// Type of windowing to apply
     window_type: WindowType,
@@ -253,6 +254,7 @@ impl<E> WindowManager<E> {
 }
 
 /// Stateful event processor with checkpointing
+#[derive(Debug)]
 pub struct StatefulProcessor<K, S>
 where
     K: Hash + Eq + Clone,
@@ -319,6 +321,7 @@ where
 }
 
 /// Flow control manager with backpressure handling
+#[derive(Debug)]
 pub struct FlowController {
     /// Backpressure configuration settings
     config: BackpressureConfig,
@@ -427,10 +430,10 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    if let Ok(Ok(permit)) =
+                    let timeout_result =
                         tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
-                            .await
-                    {
+                            .await;
+                    if let Ok(Ok(permit)) = timeout_result {
                         permit.forget();
                         Ok(())
                     } else {
@@ -473,6 +476,7 @@ impl FlowController {
 }
 
 /// Event batch processor with configurable batching
+#[derive(Debug)]
 pub struct BatchProcessor<E> {
     /// Batching configuration settings
     config: BatchConfig,
@@ -549,6 +553,7 @@ pub enum EventPattern<E> {
 }
 
 /// Complex event processing pattern matcher
+#[derive(Debug)]
 pub struct PatternMatcher<E> {
     /// Patterns to match against events
     patterns: Vec<EventPattern<E>>,

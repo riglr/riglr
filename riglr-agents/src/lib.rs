@@ -151,7 +151,6 @@ use std::sync::Arc;
 
 // Public exports
 /// Adapter to bridge riglr-core::Tool with rig::tool::Tool
-pub mod adapter;
 /// Agent implementations
 pub mod agents {
     /// Tool-calling agent implementation

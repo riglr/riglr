@@ -52,6 +52,7 @@ pub enum StreamConfig {
 }
 
 /// Builder for StreamManager with configuration loading
+#[derive(Debug)]
 pub struct StreamManagerBuilder {
     /// Handler execution mode for processing stream events
     execution_mode: HandlerExecutionMode,
@@ -306,11 +307,29 @@ pub async fn from_env() -> Result<StreamManager, Box<dyn std::error::Error>> {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
-    use std::env;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    /// Helper function to set environment variables in tests  
+    fn set_test_env_var(key: &str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests
+    fn remove_test_env_var(key: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
 
     #[tokio::test]
     async fn test_builder_basic() {
@@ -536,7 +555,7 @@ config.buffer_size = 2000
             MEMPOOL_ENABLED,
             MEMPOOL_NETWORK,
         ] {
-            env::remove_var(var);
+            remove_test_env_var(var);
         }
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
@@ -545,74 +564,74 @@ config.buffer_size = 2000
 
     #[test]
     fn test_from_env_with_sequential_execution_mode() {
-        env::set_var(STREAM_EXECUTION_MODE, "sequential");
+        set_test_env_var(STREAM_EXECUTION_MODE, "sequential");
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.execution_mode, HandlerExecutionMode::Sequential);
-        env::remove_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
     }
 
     #[test]
     fn test_from_env_with_concurrent_execution_mode() {
-        env::set_var(STREAM_EXECUTION_MODE, "concurrent");
+        set_test_env_var(STREAM_EXECUTION_MODE, "concurrent");
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.execution_mode, HandlerExecutionMode::Concurrent);
-        env::remove_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
     }
 
     #[test]
     fn test_from_env_with_bounded_execution_mode() {
-        env::set_var(STREAM_EXECUTION_MODE, "bounded");
-        env::set_var(STREAM_EXECUTION_LIMIT, "5");
+        set_test_env_var(STREAM_EXECUTION_MODE, "bounded");
+        set_test_env_var(STREAM_EXECUTION_LIMIT, "5");
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(
             builder.execution_mode,
             HandlerExecutionMode::ConcurrentBounded(5)
         );
-        env::remove_var(STREAM_EXECUTION_MODE);
-        env::remove_var(STREAM_EXECUTION_LIMIT);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_LIMIT);
     }
 
     #[test]
     fn test_from_env_with_bounded_execution_mode_default_limit() {
-        env::set_var(STREAM_EXECUTION_MODE, "bounded");
-        env::remove_var(STREAM_EXECUTION_LIMIT);
+        set_test_env_var(STREAM_EXECUTION_MODE, "bounded");
+        remove_test_env_var(STREAM_EXECUTION_LIMIT);
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(
             builder.execution_mode,
             HandlerExecutionMode::ConcurrentBounded(10)
         );
-        env::remove_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
     }
 
     #[test]
     fn test_from_env_with_bounded_execution_mode_invalid_limit() {
-        env::set_var(STREAM_EXECUTION_MODE, "bounded");
-        env::set_var(STREAM_EXECUTION_LIMIT, "invalid");
+        set_test_env_var(STREAM_EXECUTION_MODE, "bounded");
+        set_test_env_var(STREAM_EXECUTION_LIMIT, "invalid");
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(
             builder.execution_mode,
             HandlerExecutionMode::ConcurrentBounded(10)
         );
-        env::remove_var(STREAM_EXECUTION_MODE);
-        env::remove_var(STREAM_EXECUTION_LIMIT);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_LIMIT);
     }
 
     #[test]
     fn test_from_env_with_invalid_execution_mode() {
-        env::set_var(STREAM_EXECUTION_MODE, "invalid");
+        set_test_env_var(STREAM_EXECUTION_MODE, "invalid");
         let original_mode = HandlerExecutionMode::Sequential;
         let builder = StreamManagerBuilder::default()
             .with_execution_mode(original_mode.clone())
             .from_env()
             .unwrap();
         assert_eq!(builder.execution_mode, original_mode);
-        env::remove_var(STREAM_EXECUTION_MODE);
+        remove_test_env_var(STREAM_EXECUTION_MODE);
     }
 
     #[test]
     fn test_from_env_with_solana_geyser() {
-        env::set_var(SOLANA_GEYSER_WS_URL, "ws://localhost:8899");
-        env::set_var(SOLANA_GEYSER_PROGRAMS, "program1,program2,program3");
+        set_test_env_var(SOLANA_GEYSER_WS_URL, "ws://localhost:8899");
+        set_test_env_var(SOLANA_GEYSER_PROGRAMS, "program1,program2,program3");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -627,14 +646,14 @@ config.buffer_size = 2000
             panic!("Expected SolanaGeyser config");
         }
 
-        env::remove_var(SOLANA_GEYSER_WS_URL);
-        env::remove_var(SOLANA_GEYSER_PROGRAMS);
+        remove_test_env_var(SOLANA_GEYSER_WS_URL);
+        remove_test_env_var(SOLANA_GEYSER_PROGRAMS);
     }
 
     #[test]
     fn test_from_env_with_solana_geyser_no_programs() {
-        env::set_var(SOLANA_GEYSER_WS_URL, "ws://localhost:8899");
-        env::remove_var(SOLANA_GEYSER_PROGRAMS);
+        set_test_env_var(SOLANA_GEYSER_WS_URL, "ws://localhost:8899");
+        remove_test_env_var(SOLANA_GEYSER_PROGRAMS);
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -645,18 +664,18 @@ config.buffer_size = 2000
             panic!("Expected SolanaGeyser config");
         }
 
-        env::remove_var(SOLANA_GEYSER_WS_URL);
+        remove_test_env_var(SOLANA_GEYSER_WS_URL);
     }
 
     #[test]
     fn test_from_env_with_evm_chains() {
-        env::set_var("EVM_WS_URL_1", "ws://ethereum:8546");
-        env::set_var("EVM_WS_URL_137", "ws://polygon:8546");
-        env::set_var("EVM_WS_URL_56", "ws://bsc:8546");
-        env::set_var("EVM_WS_URL_42161", "ws://arbitrum:8546");
-        env::set_var("EVM_WS_URL_10", "ws://optimism:8546");
-        env::set_var("EVM_WS_URL_43114", "ws://avalanche:8546");
-        env::set_var("EVM_WS_URL_8453", "ws://base:8546");
+        set_test_env_var("EVM_WS_URL_1", "ws://ethereum:8546");
+        set_test_env_var("EVM_WS_URL_137", "ws://polygon:8546");
+        set_test_env_var("EVM_WS_URL_56", "ws://bsc:8546");
+        set_test_env_var("EVM_WS_URL_42161", "ws://arbitrum:8546");
+        set_test_env_var("EVM_WS_URL_10", "ws://optimism:8546");
+        set_test_env_var("EVM_WS_URL_43114", "ws://avalanche:8546");
+        set_test_env_var("EVM_WS_URL_8453", "ws://base:8546");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 7);
@@ -684,14 +703,14 @@ config.buffer_size = 2000
 
         // Clean up
         for chain_id in [1, 137, 56, 42161, 10, 43114, 8453] {
-            env::remove_var(format!("EVM_WS_URL_{}", chain_id));
+            remove_test_env_var(&format!("EVM_WS_URL_{}", chain_id));
         }
     }
 
     #[test]
     fn test_from_env_with_binance() {
-        env::set_var(BINANCE_STREAMS, "btcusdt@ticker,ethusdt@depth");
-        env::set_var(BINANCE_TESTNET, "true");
+        set_test_env_var(BINANCE_STREAMS, "btcusdt@ticker,ethusdt@depth");
+        set_test_env_var(BINANCE_TESTNET, "true");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -705,14 +724,14 @@ config.buffer_size = 2000
             panic!("Expected Binance config");
         }
 
-        env::remove_var(BINANCE_STREAMS);
-        env::remove_var(BINANCE_TESTNET);
+        remove_test_env_var(BINANCE_STREAMS);
+        remove_test_env_var(BINANCE_TESTNET);
     }
 
     #[test]
     fn test_from_env_with_binance_no_testnet() {
-        env::set_var(BINANCE_STREAMS, "btcusdt@ticker");
-        env::remove_var(BINANCE_TESTNET);
+        set_test_env_var(BINANCE_STREAMS, "btcusdt@ticker");
+        remove_test_env_var(BINANCE_TESTNET);
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -723,13 +742,13 @@ config.buffer_size = 2000
             panic!("Expected Binance config");
         }
 
-        env::remove_var(BINANCE_STREAMS);
+        remove_test_env_var(BINANCE_STREAMS);
     }
 
     #[test]
     fn test_from_env_with_binance_invalid_testnet() {
-        env::set_var(BINANCE_STREAMS, "btcusdt@ticker");
-        env::set_var(BINANCE_TESTNET, "invalid");
+        set_test_env_var(BINANCE_STREAMS, "btcusdt@ticker");
+        set_test_env_var(BINANCE_TESTNET, "invalid");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -740,14 +759,14 @@ config.buffer_size = 2000
             panic!("Expected Binance config");
         }
 
-        env::remove_var(BINANCE_STREAMS);
-        env::remove_var(BINANCE_TESTNET);
+        remove_test_env_var(BINANCE_STREAMS);
+        remove_test_env_var(BINANCE_TESTNET);
     }
 
     #[test]
     fn test_from_env_with_mempool_mainnet() {
-        env::set_var(MEMPOOL_ENABLED, "true");
-        env::remove_var(MEMPOOL_NETWORK);
+        set_test_env_var(MEMPOOL_ENABLED, "true");
+        remove_test_env_var(MEMPOOL_NETWORK);
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -763,13 +782,13 @@ config.buffer_size = 2000
             panic!("Expected MempoolSpace config");
         }
 
-        env::remove_var(MEMPOOL_ENABLED);
+        remove_test_env_var(MEMPOOL_ENABLED);
     }
 
     #[test]
     fn test_from_env_with_mempool_testnet() {
-        env::set_var(MEMPOOL_ENABLED, "true");
-        env::set_var(MEMPOOL_NETWORK, "testnet");
+        set_test_env_var(MEMPOOL_ENABLED, "true");
+        set_test_env_var(MEMPOOL_NETWORK, "testnet");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -780,14 +799,14 @@ config.buffer_size = 2000
             panic!("Expected MempoolSpace config");
         }
 
-        env::remove_var(MEMPOOL_ENABLED);
-        env::remove_var(MEMPOOL_NETWORK);
+        remove_test_env_var(MEMPOOL_ENABLED);
+        remove_test_env_var(MEMPOOL_NETWORK);
     }
 
     #[test]
     fn test_from_env_with_mempool_signet() {
-        env::set_var(MEMPOOL_ENABLED, "true");
-        env::set_var(MEMPOOL_NETWORK, "signet");
+        set_test_env_var(MEMPOOL_ENABLED, "true");
+        set_test_env_var(MEMPOOL_NETWORK, "signet");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -798,14 +817,14 @@ config.buffer_size = 2000
             panic!("Expected MempoolSpace config");
         }
 
-        env::remove_var(MEMPOOL_ENABLED);
-        env::remove_var(MEMPOOL_NETWORK);
+        remove_test_env_var(MEMPOOL_ENABLED);
+        remove_test_env_var(MEMPOOL_NETWORK);
     }
 
     #[test]
     fn test_from_env_with_mempool_invalid_network() {
-        env::set_var(MEMPOOL_ENABLED, "true");
-        env::set_var(MEMPOOL_NETWORK, "invalid");
+        set_test_env_var(MEMPOOL_ENABLED, "true");
+        set_test_env_var(MEMPOOL_NETWORK, "invalid");
 
         let builder = StreamManagerBuilder::default().from_env().unwrap();
         assert_eq!(builder.streams.len(), 1);
@@ -816,8 +835,8 @@ config.buffer_size = 2000
             panic!("Expected MempoolSpace config");
         }
 
-        env::remove_var(MEMPOOL_ENABLED);
-        env::remove_var(MEMPOOL_NETWORK);
+        remove_test_env_var(MEMPOOL_ENABLED);
+        remove_test_env_var(MEMPOOL_NETWORK);
     }
 
     #[tokio::test]
@@ -885,7 +904,7 @@ config.buffer_size = 1000
             MEMPOOL_ENABLED,
             MEMPOOL_NETWORK,
         ] {
-            env::remove_var(var);
+            remove_test_env_var(var);
         }
 
         let result = from_env().await;

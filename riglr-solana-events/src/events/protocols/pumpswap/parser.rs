@@ -28,6 +28,7 @@ pub const PUMPSWAP_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
 
 /// PumpSwap event parser
+#[derive(Debug)]
 pub struct PumpSwapEventParser {
     inner: GenericEventParser,
 }
@@ -99,7 +100,7 @@ impl PumpSwapEventParser {
 
     /// Parse buy log event as static method
     fn parse_buy_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the buy event using borsh deserialization
@@ -117,7 +118,7 @@ impl PumpSwapEventParser {
 
     /// Parse sell log event as static method
     fn parse_sell_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the sell event using borsh deserialization
@@ -135,7 +136,7 @@ impl PumpSwapEventParser {
 
     /// Parse create pool log event as static method
     fn parse_create_pool_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the create pool event using borsh deserialization
@@ -153,7 +154,7 @@ impl PumpSwapEventParser {
 
     /// Parse deposit log event as static method
     fn parse_deposit_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the deposit event using borsh deserialization
@@ -171,7 +172,7 @@ impl PumpSwapEventParser {
 
     /// Parse withdraw log event as static method
     fn parse_withdraw_inner_instruction(
-        data: &[u8],
+        data: &'_ [u8],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the withdraw event using borsh deserialization
@@ -189,8 +190,8 @@ impl PumpSwapEventParser {
 
     /// Parse buy instruction event as static method
     fn parse_buy_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         use crate::events::common::{
@@ -264,8 +265,8 @@ impl PumpSwapEventParser {
 
     /// Parse sell instruction event as static method
     fn parse_sell_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 11 {
@@ -326,8 +327,8 @@ impl PumpSwapEventParser {
 
     /// Parse create pool instruction event as static method
     fn parse_create_pool_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         use crate::events::common::{
@@ -395,8 +396,8 @@ impl PumpSwapEventParser {
 
     /// Parse deposit instruction event as static method
     fn parse_deposit_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 11 {
@@ -455,8 +456,8 @@ impl PumpSwapEventParser {
 
     /// Parse withdraw instruction event as static method
     fn parse_withdraw_instruction(
-        data: &[u8],
-        accounts: &[Pubkey],
+        data: &'_ [u8],
+        accounts: &'_ [Pubkey],
         metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 11 {
@@ -589,14 +590,14 @@ impl ProtocolParser for PumpSwapEventParser {
     }
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(params)
     }

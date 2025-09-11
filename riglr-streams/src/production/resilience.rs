@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 /// Circuit breaker for stream connections
+#[derive(Debug)]
 pub struct CircuitBreaker {
     /// Name
     name: String,
@@ -129,7 +130,7 @@ impl CircuitBreaker {
 }
 
 /// Retry policy for operations
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RetryPolicy {
     /// Maximum number of retries
     pub max_retries: u32,
@@ -156,7 +157,7 @@ impl Default for RetryPolicy {
 }
 
 /// Backoff strategy for retries
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BackoffStrategy {
     /// Fixed delay between all retry attempts
     Fixed,
@@ -195,7 +196,8 @@ impl RetryPolicy {
             use rand::Rng;
             let mut rng = rand::rng();
             let jitter_factor = rng.random_range(0.8..1.2);
-            delay = delay.mul_f64(jitter_factor);
+            let jittered_delay = delay.mul_f64(jitter_factor);
+            delay = jittered_delay;
         }
 
         delay
@@ -210,7 +212,8 @@ impl RetryPolicy {
         let mut attempt = 0;
 
         loop {
-            match operation().await {
+            let operation_result = operation().await;
+            match operation_result {
                 Ok(result) => return Ok(result),
                 Err(e) if attempt >= self.max_retries => {
                     error!("Operation failed after {} retries: {}", attempt, e);

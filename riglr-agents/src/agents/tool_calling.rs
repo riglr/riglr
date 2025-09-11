@@ -3,17 +3,8 @@
 use crate::toolset::Toolset;
 use crate::*;
 use rig::completion::Prompt;
-use riglr_core::provider::ApplicationContext;
-use riglr_core::{idempotency::InMemoryIdempotencyStore, ExecutionConfig, ToolWorker};
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::info;
-
-// Simple Either enum for internal use
-enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
 
 /// A wrapper that adds Debug implementation to any CompletionModel
 ///
@@ -109,7 +100,16 @@ impl<T: rig::completion::CompletionModel> rig::completion::CompletionModel
 }
 
 // Ensure the wrapper implements all required traits for ToolCallingAgent
+// SAFETY: DebuggableCompletionModel is a transparent wrapper around T.
+// If T implements Send, then DebuggableCompletionModel<T> can be safely sent between threads
+// since it only contains a single field of type T.
+#[allow(unsafe_code)]
 unsafe impl<T: rig::completion::CompletionModel + Send> Send for DebuggableCompletionModel<T> {}
+
+// SAFETY: DebuggableCompletionModel is a transparent wrapper around T.
+// If T implements Sync, then DebuggableCompletionModel<T> can be safely shared between threads
+// since it only contains a single field of type T.
+#[allow(unsafe_code)]
 unsafe impl<T: rig::completion::CompletionModel + Sync> Sync for DebuggableCompletionModel<T> {}
 
 // Implement Clone if inner type supports it
@@ -139,294 +139,94 @@ impl<M: rig::completion::CompletionModel + std::fmt::Debug> std::fmt::Debug for 
 
 /// An agent that specializes in calling tools based on LLM decisions.
 ///
-/// This agent supports **parallel execution** of multiple tool calls. When the LLM
-/// returns multiple tool calls in a single response, `ToolCallingAgent` will execute
-/// all of them concurrently using `futures::future::join_all`, significantly improving
-/// performance for workflows that require multiple independent tool operations.
+/// This agent leverages rig-core's built-in multi-turn tool calling capability,
+/// which handles the complexity of iterative LLM-tool interactions. The agent
+/// delegates the entire tool-calling loop to rig-core, simplifying the implementation
+/// and ensuring consistent behavior with the rig framework.
 ///
-/// # Parallel Execution
+/// # How it Works
 ///
-/// When the LLM responds with multiple tool calls (as a JSON array), the agent:
-/// 1. Creates async tasks for each tool call
-/// 2. Executes all tasks concurrently using `futures::future::join_all`
-/// 3. Aggregates results from all tool executions
-/// 4. Returns a combined result containing outputs from all tools
+/// The agent uses `rig::agent::Agent::prompt().multi_turn()` to:
+/// 1. Send the initial prompt to the LLM
+/// 2. Parse any tool calls from the LLM's response
+/// 3. Execute the requested tools
+/// 4. Feed tool results back to the LLM
+/// 5. Repeat until the LLM provides a final answer (up to 5 rounds)
 ///
-/// This parallel execution model provides:
-/// - **Better performance**: Multiple tools run simultaneously instead of sequentially
-/// - **Fault tolerance**: If one tool fails, others continue to execute
-/// - **Complete results**: All tool outputs are collected and returned
+/// This approach provides:
+/// - **Simpler implementation**: No need to manually manage the tool-calling loop
+/// - **Framework consistency**: Uses rig-core's battle-tested multi-turn logic
+/// - **Automatic retries**: Built-in support for multiple rounds of tool calls
 ///
-/// # Example
-///
-/// ```rust
-/// // LLM might return multiple tool calls like:
-/// // [
-/// //   {"name": "get_balance", "arguments": {"address": "0x123"}},
-/// //   {"name": "get_transactions", "arguments": {"address": "0x123"}},
-/// //   {"name": "get_token_holdings", "arguments": {"address": "0x123"}}
-/// // ]
-/// //
-/// // All three tools will execute in parallel, reducing total execution time
-/// // from sum(t1 + t2 + t3) to max(t1, t2, t3)
-/// ```
-///
-/// Made generic over the IdempotencyStore and Model for flexibility.
+/// Made generic over the Model for flexibility.
 #[derive(Debug)]
-pub struct ToolCallingAgent<
-    S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static,
-    M: rig::completion::CompletionModel + std::fmt::Debug + 'static,
-> {
+pub struct ToolCallingAgent<M: rig::completion::CompletionModel + std::fmt::Debug + 'static> {
     id: AgentId,
     rig_agent: DebuggableAgent<M>,
-    tool_worker: Arc<ToolWorker<S>>,
 }
 
-impl<
-        S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static,
-        M: rig::completion::CompletionModel + std::fmt::Debug + 'static,
-    > ToolCallingAgent<S, M>
-{
-    /// Creates a new ToolCallingAgent with the given rig Agent and ToolWorker
-    pub fn new(rig_agent: rig::agent::Agent<M>, tool_worker: Arc<ToolWorker<S>>) -> Self {
+impl<M: rig::completion::CompletionModel + std::fmt::Debug + 'static> ToolCallingAgent<M> {
+    /// Creates a new ToolCallingAgent with the given rig Agent
+    pub fn new(rig_agent: rig::agent::Agent<M>) -> Self {
         Self {
             id: AgentId::generate(),
             rig_agent: DebuggableAgent(rig_agent),
-            tool_worker,
         }
-    }
-
-    /// Private helper: Gets tool calls from the LLM
-    ///
-    /// Prompts the LLM with the task and parses its response.
-    /// Returns either tool calls to execute or a final text response.
-    async fn _get_llm_tool_calls(
-        &self,
-        task: &Task,
-    ) -> Result<Either<Vec<rig::completion::message::ToolCall>, String>> {
-        let task_description = format!("Execute task: {:?}", task);
-        info!("RECEIVED PROMPT: '{}'", task_description);
-
-        // Get the LLM's response
-        let llm_response_str = self.rig_agent.0.prompt(&task_description).await?;
-
-        // Try to parse as tool calls; if that fails, treat as a text response
-        match serde_json::from_str::<Vec<rig::completion::message::ToolCall>>(&llm_response_str) {
-            Ok(calls) if !calls.is_empty() => {
-                info!(
-                    "LLM DECISION: Execute {} tool calls in parallel",
-                    calls.len()
-                );
-                Ok(Either::Left(calls))
-            }
-            _ => {
-                // LLM returned a text response (likely the final answer)
-                info!("LLM provided final answer: {}", llm_response_str);
-                Ok(Either::Right(llm_response_str))
-            }
-        }
-    }
-
-    /// Private helper: Executes multiple tool calls in parallel
-    ///
-    /// Takes a list of tool calls and executes them concurrently using futures::future::join_all.
-    /// Returns a vector of results (success or error) for each tool call.
-    async fn _execute_tool_calls_in_parallel(
-        &self,
-        tool_calls: &[rig::completion::message::ToolCall],
-    ) -> Vec<Result<riglr_core::JobResult>> {
-        // Create async futures for each tool call
-        let futures: Vec<_> = tool_calls
-            .iter()
-            .map(|tool_call| {
-                info!(
-                    "Preparing tool '{}' with args: {}",
-                    tool_call.function.name, tool_call.function.arguments
-                );
-
-                // Clone what we need for the async block
-                let tool_name = tool_call.function.name.clone();
-                let tool_args = tool_call.function.arguments.clone();
-                let worker = self.tool_worker.clone();
-
-                // Create async block for this tool execution
-                async move {
-                    // Create a job from the tool call
-                    let job = riglr_core::Job::new(&tool_name, &tool_args, 3)?;
-
-                    // Delegate execution to the ToolWorker
-                    let job_result = worker.process_job(job).await?;
-
-                    Ok::<_, AgentError>(job_result)
-                }
-            })
-            .collect();
-
-        // Execute all tool calls concurrently
-        futures::future::join_all(futures).await
-    }
-
-    /// Private helper: Aggregates results from parallel tool executions
-    ///
-    /// Takes the results from parallel tool executions and combines them into a single TaskResult.
-    /// Handles partial failures and constructs the final JSON response.
-    fn _aggregate_tool_results(
-        &self,
-        results: Vec<Result<riglr_core::JobResult>>,
-        tool_count: usize,
-    ) -> Result<TaskResult> {
-        let mut all_values: Vec<serde_json::Value> = Vec::new();
-        let mut all_tx_hashes: Vec<String> = Vec::new();
-        let total_duration = std::time::Duration::ZERO;
-
-        for (i, result) in results.into_iter().enumerate() {
-            match result {
-                Ok(job_result) => {
-                    match job_result {
-                        riglr_core::JobResult::Success { value, tx_hash } => {
-                            info!("Tool call {} succeeded with result: {}", i, value);
-                            all_values.extend(vec![value]);
-                            if let Some(hash) = tx_hash {
-                                all_tx_hashes.push(hash);
-                            }
-                        }
-                        riglr_core::JobResult::Failure { error } => {
-                            tracing::warn!("Tool call {} failed: {}", i, error);
-
-                            // Check if the error is retriable for better handling
-                            let error_message = error.to_string();
-                            let is_retriable = error.is_retriable();
-                            let retry_after_secs = error.retry_after().map(|d| d.as_secs());
-
-                            let error_info = if is_retriable {
-                                serde_json::json!({
-                                    "error": error_message,
-                                    "retriable": true,
-                                    "retry_after": retry_after_secs,
-                                    "tool_index": i
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "error": error_message,
-                                    "retriable": false,
-                                    "tool_index": i
-                                })
-                            };
-                            all_values.extend(vec![error_info]);
-                        }
-                    }
-                }
-                Err(e) => {
-                    // Log the error but continue with other results
-                    tracing::warn!("Tool call {} failed with error: {}", i, e);
-                    let error_message = e.to_string();
-                    let error_json = serde_json::json!({
-                        "error": error_message,
-                        "tool_index": i
-                    });
-                    all_values.extend(vec![error_json]);
-                }
-            }
-        }
-
-        // Check if all tool calls failed
-        let successful_results = all_values
-            .iter()
-            .filter(|v| v.get("error").is_none())
-            .count();
-
-        if successful_results == 0 && !all_values.is_empty() {
-            // All tool calls failed - this is a significant error condition
-            let any_retriable = all_values.iter().any(|v| {
-                v.get("retriable")
-                    .and_then(|r| r.as_bool())
-                    .unwrap_or(false)
-            });
-
-            if any_retriable {
-                return Err(AgentError::task_execution(format!(
-                    "All {} tool calls failed (some retriable)",
-                    tool_count
-                )));
-            } else {
-                return Err(AgentError::task_execution(format!(
-                    "All {} tool calls failed permanently",
-                    tool_count
-                )));
-            }
-        }
-
-        // Report aggregated results (at least some succeeded)
-        let final_result = serde_json::json!({
-            "results": all_values,
-            "tx_hashes": all_tx_hashes,
-            "tool_count": tool_count,
-            "successful_count": successful_results
-        });
-
-        Ok(TaskResult::success(
-            final_result,
-            if all_tx_hashes.is_empty() {
-                None
-            } else {
-                Some(all_tx_hashes.join(", "))
-            },
-            total_duration,
-        ))
     }
 }
 
 #[async_trait::async_trait]
-impl<
-        S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static,
-        M: rig::completion::CompletionModel + std::fmt::Debug + Send + Sync + 'static,
-    > Agent for ToolCallingAgent<S, M>
+impl<M: rig::completion::CompletionModel + std::fmt::Debug + Send + Sync + 'static> Agent
+    for ToolCallingAgent<M>
 {
-    /// Executes a task by leveraging an LLM to decide which tools to call.
+    /// Executes a task by leveraging rig-core's multi-turn tool calling.
     ///
-    /// This method supports parallel execution of multiple tool calls. When the LLM
-    /// returns multiple tool calls, they are executed concurrently for improved performance.
+    /// This method delegates the entire tool-calling loop to rig-core's
+    /// `multi_turn` capability, which handles the iterative process of
+    /// LLM decisions, tool executions, and result aggregation.
     ///
     /// # Process Flow
     ///
-    /// 1. **LLM Decision**: The task is sent to the LLM for analysis
-    /// 2. **Response Parsing**: The LLM response is parsed as either:
-    ///    - A JSON array of tool calls (triggers parallel execution)
-    ///    - A text response (returned as final answer)
-    /// 3. **Parallel Execution**: If tool calls are detected:
-    ///    - All tools are executed concurrently using `futures::future::join_all`
-    ///    - Results are aggregated from all tool executions
-    ///    - Failures in individual tools don't stop other executions
-    /// 4. **Result Aggregation**: All tool outputs are combined into a single response
+    /// 1. **Extract Prompt**: Gets the prompt from the task parameters
+    /// 2. **Multi-Turn Execution**: Calls `rig_agent.prompt().multi_turn(5)`
+    ///    - The LLM analyzes the prompt and may call tools
+    ///    - Tool results are fed back to the LLM
+    ///    - Process repeats up to 5 times until a final answer is reached
+    /// 3. **Result Formatting**: The final LLM response is wrapped in a TaskResult
     ///
     /// # Returns
     ///
-    /// - `TaskResult` containing either:
-    ///   - Aggregated results from all tool executions
-    ///   - A text response from the LLM (if no tools were called)
+    /// - `TaskResult::Success` with the final LLM response
+    /// - `TaskResult::Failure` if the multi-turn process encounters an error
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
         info!("--- ToolCallingAgent ENGAGED ---");
+        let task_description = format!("Execute task: {:?}", task);
+        info!("PROMPT: '{}'", task_description);
 
-        // Step 1: Get tool calls or text response from the LLM
-        match self._get_llm_tool_calls(&task).await? {
-            Either::Right(text_response) => {
-                // LLM returned a final text answer instead of tool calls
-                // Return it directly as the result
+        // Use rig-core's built-in multi-turn logic.
+        // This replaces the manual _get_llm_tool_calls, _execute_tool_calls_in_parallel,
+        // and _aggregate_tool_results methods.
+        match self
+            .rig_agent
+            .0
+            .prompt(&task_description)
+            .multi_turn(5)
+            .await
+        {
+            Ok(response_string) => {
+                info!("LLM provided final answer: {}", response_string);
                 Ok(TaskResult::success(
                     serde_json::json!({
-                        "response": text_response,
+                        "response": response_string,
                         "type": "text"
                     }),
                     None,
-                    std::time::Duration::ZERO,
+                    std::time::Duration::ZERO, // Duration is tracked by the worker
                 ))
             }
-            Either::Left(tool_calls) => {
-                // Step 2: Execute tool calls in parallel
-                let results = self._execute_tool_calls_in_parallel(&tool_calls).await;
-
-                // Step 3: Aggregate results and return
-                self._aggregate_tool_results(results, tool_calls.len())
+            Err(prompt_error) => {
+                // Convert the rig::completion::PromptError into our AgentError
+                Err(AgentError::from(prompt_error))
             }
         }
     }
@@ -442,80 +242,33 @@ impl<
 
 /// A fluent builder for creating a `ToolCallingAgent`.
 /// This handles all the boilerplate of wiring up the components.
-pub struct ToolCallingAgentBuilder<
-    S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static,
-> {
+#[derive(Debug)]
+pub struct ToolCallingAgentBuilder {
     toolset: Toolset,
-    app_context: ApplicationContext,
-    execution_config: ExecutionConfig,
-    _store: PhantomData<S>,
 }
 
-impl ToolCallingAgentBuilder<InMemoryIdempotencyStore> {
-    /// Creates a new builder with a default `InMemoryIdempotencyStore`.
-    pub fn new(toolset: Toolset, app_context: ApplicationContext) -> Self {
-        Self {
-            toolset,
-            app_context,
-            execution_config: ExecutionConfig::default(),
-            _store: PhantomData,
-        }
+impl ToolCallingAgentBuilder {
+    /// Creates a new builder with the given toolset.
+    pub fn new(toolset: Toolset) -> Self {
+        Self { toolset }
     }
 }
 
-impl<S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static>
-    ToolCallingAgentBuilder<S>
-{
-    /// Specifies a custom `ExecutionConfig` for the `ToolWorker`.
-    pub fn with_execution_config(mut self, config: ExecutionConfig) -> Self {
-        self.execution_config = config;
-        self
-    }
-
-    /// Specifies a custom `IdempotencyStore` for the `ToolWorker`.
-    pub fn with_idempotency_store<
-        NewS: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static,
-    >(
-        self,
-    ) -> ToolCallingAgentBuilder<NewS> {
-        ToolCallingAgentBuilder {
-            toolset: self.toolset,
-            app_context: self.app_context,
-            execution_config: self.execution_config,
-            _store: PhantomData,
-        }
-    }
-
+impl ToolCallingAgentBuilder {
     /// Builds and initializes the `ToolCallingAgent`.
-    ///
-    /// This method is `async` to ensure that all components, including the
-    /// tool worker, are fully initialized before the agent is returned.
-    pub async fn build<
-        M: rig::completion::CompletionModel + std::fmt::Debug + Send + Sync + 'static,
-    >(
+    pub fn build<M: rig::completion::CompletionModel + std::fmt::Debug + Send + Sync + 'static>(
         self,
         model: M,
-    ) -> crate::Result<Arc<ToolCallingAgent<S, M>>> {
-        // 1. Create the ToolWorker with the specified store and config.
-        let tool_worker = Arc::new(ToolWorker::<S>::new(
-            self.execution_config,
-            self.app_context.clone(),
-        ));
-
-        // 2. Register all tools with the worker and AWAIT completion.
-        self.toolset.register_with_worker(&tool_worker).await;
-
-        // 3. Create the rig::Agent brain.
+    ) -> crate::Result<Arc<ToolCallingAgent<M>>> {
+        // 1. Create the rig::Agent brain.
         let agent_builder = rig::agent::AgentBuilder::new(model);
 
-        // 5. Register all tools with the brain.
-        let rig_agent = self
-            .toolset
-            .register_with_brain(agent_builder, &self.app_context)
-            .build();
+        // 2. Register all tools with the brain.
+        // Tools now directly implement rig::tool::Tool, no adapter needed
+        let rig_agent = self.toolset.register_with_brain(agent_builder).build();
 
-        // 6. Assemble and return the final agent.
-        Ok(Arc::new(ToolCallingAgent::new(rig_agent, tool_worker)))
+        // 3. Assemble and return the final agent.
+        Ok(Arc::new(ToolCallingAgent::new(rig_agent)))
     }
 }
 
@@ -967,12 +720,12 @@ mod tests {
         ]);
         let _debuggable = DebuggableCompletionModel::new(model);
 
-        let toolset = Toolset::default();
         let config = riglr_core::Config::from_env();
         let app_context = ApplicationContext::from_config(&config);
+        let toolset = Toolset::new(Arc::new(app_context.clone()));
 
         // This should compile and create the builder successfully
-        let builder = ToolCallingAgentBuilder::new(toolset, app_context);
+        let builder = ToolCallingAgentBuilder::new(toolset);
 
         // The build should work with our debuggable model
         // Note: We can't easily test the full build without setting up tools,

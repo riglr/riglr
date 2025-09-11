@@ -24,7 +24,12 @@ use solana_sdk::{
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
-use solana_system_interface::instruction as system_instruction;
+// NOTE: Using deprecated solana_sdk::system_instruction instead of solana_system_interface
+// to avoid Address vs Pubkey type mismatches and solana-instruction crate version conflicts.
+// The newer solana_system_interface requires Address types but our codebase uses Pubkey,
+// leading to compilation errors. This should be migrated in a broader dependency update.
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info};

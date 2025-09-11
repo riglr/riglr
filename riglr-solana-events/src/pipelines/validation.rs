@@ -380,6 +380,28 @@ impl ValidationPipeline {
     }
 }
 
+impl std::fmt::Debug for ValidationPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValidationPipeline")
+            .field("config", &self.config)
+            .field(
+                "seen_events",
+                &format!(
+                    "DashMap<String, Instant> with {} entries",
+                    self.seen_events.len()
+                ),
+            )
+            .field(
+                "rules",
+                &format!(
+                    "Vec<Arc<dyn ValidationRule>> with {} rules",
+                    self.rules.len()
+                ),
+            )
+            .finish()
+    }
+}
+
 /// Validation pipeline statistics
 #[derive(Debug, Clone)]
 pub struct ValidationStats {

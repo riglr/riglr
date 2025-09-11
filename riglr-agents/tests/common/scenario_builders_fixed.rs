@@ -6,6 +6,7 @@
 use crate::common::BlockchainTestHarness;
 
 /// Simple scenario builder for E2E testing.
+#[derive(Debug)]
 pub struct SimpleScenarioBuilder {
     /// The name of the scenario being built.
     pub name: String,

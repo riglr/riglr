@@ -362,6 +362,7 @@ impl MockRigAgent {
 }
 
 /// Test scenario generators for different AI response patterns.
+#[derive(Debug)]
 pub struct AIResponseScenarios;
 
 impl AIResponseScenarios {

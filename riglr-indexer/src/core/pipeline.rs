@@ -9,6 +9,7 @@ pub use crate::core::processor::{PipelineStage, ProcessingPipeline};
 pub type PipelineResult<T> = IndexerResult<T>;
 
 /// Validation pipeline stage
+#[derive(Debug)]
 pub struct ValidationStage {
     name: String,
 }
@@ -51,6 +52,7 @@ impl PipelineStage for ValidationStage {
 }
 
 /// Enrichment pipeline stage
+#[derive(Debug)]
 pub struct EnrichmentStage {
     name: String,
 }

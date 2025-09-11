@@ -71,8 +71,11 @@ pub struct MemoryMappedParser {
 
 impl MemoryMappedParser {
     /// Create a new memory-mapped parser from a file
+    #[allow(unsafe_code)]
     pub fn from_file(file_path: &str) -> Result<Self, ParseError> {
         let file = File::open(file_path)?;
+        // SAFETY: Memory mapping a file is safe when the file handle is valid
+        // and we don't modify the mapped memory. The Mmap type ensures proper cleanup.
         let mmap = unsafe { MmapOptions::new().map(&file)? };
 
         Ok(Self {
@@ -133,7 +136,7 @@ impl MemoryMappedParser {
 }
 
 /// SIMD-optimized pattern matcher for instruction discriminators
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SIMDPatternMatcher {
     /// Discriminator byte patterns to match
     patterns: Vec<Vec<u8>>,
@@ -180,6 +183,7 @@ impl SIMDPatternMatcher {
 }
 
 /// Custom deserializer for hot path parsing
+#[derive(Debug)]
 pub struct CustomDeserializer<'a> {
     /// Byte data being deserialized
     data: &'a [u8],
@@ -298,6 +302,7 @@ impl<'a> CustomDeserializer<'a> {
 }
 
 /// Batch processor for efficient parsing of multiple transactions
+#[derive(Debug)]
 pub struct BatchEventParser {
     /// Protocol-specific parsers indexed by protocol type
     parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>,
@@ -398,6 +403,15 @@ pub struct RpcConnectionPool {
     clients: Vec<Arc<solana_client::rpc_client::RpcClient>>,
     /// Current index for round-robin client selection
     current: std::sync::atomic::AtomicUsize,
+}
+
+impl std::fmt::Debug for RpcConnectionPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RpcConnectionPool")
+            .field("clients_count", &self.clients.len())
+            .field("current", &self.current)
+            .finish()
+    }
 }
 
 impl RpcConnectionPool {

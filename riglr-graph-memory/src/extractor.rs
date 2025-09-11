@@ -383,7 +383,8 @@ impl EntityExtractor {
         ];
 
         for (pattern, rel_type) in relationship_patterns {
-            if let Ok(regex) = Regex::new(pattern) {
+            let regex_result = Regex::new(pattern);
+            if let Ok(regex) = regex_result {
                 for mat in regex.find_iter(&text_lower) {
                     let context = mat.as_str().to_string();
 

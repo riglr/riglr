@@ -27,11 +27,13 @@ pub trait Cache: Send + Sync {
 }
 
 /// Redis-based cache implementation
+#[derive(Debug)]
 pub struct RedisCache {
     // Implementation would go here
 }
 
 /// In-memory cache implementation
+#[derive(Debug)]
 pub struct MemoryCache {
     // Implementation would go here
 }
@@ -134,6 +136,7 @@ mod tests {
     }
 
     // Mock implementation for testing trait methods
+    #[derive(Debug)]
     struct MockCache {
         should_fail: bool,
     }

@@ -16,8 +16,8 @@ use riglr_core::{
 use riglr_solana_tools::{
     clients::ApiClients,
     pump::{
-        buy_pump_token_tool, deploy_pump_token_tool, get_pump_token_info_tool,
-        get_trending_pump_tokens_tool, sell_pump_token_tool,
+        BuyPumpTokenTool, DeployPumpTokenTool, GetPumpTokenInfoTool, GetTrendingPumpTokensTool,
+        SellPumpTokenTool,
     },
     LocalSolanaSigner,
 };
@@ -51,15 +51,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     app_context.set_extension(Arc::new(api_clients));
 
     // Create ToolWorker with default configuration
-    let worker =
-        ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default(), app_context);
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+        ExecutionConfig::default(),
+        app_context.clone(),
+    );
 
-    // Register pump tools using factory functions
-    worker.register_tool(deploy_pump_token_tool()).await;
-    worker.register_tool(buy_pump_token_tool()).await;
-    worker.register_tool(sell_pump_token_tool()).await;
-    worker.register_tool(get_pump_token_info_tool()).await;
-    worker.register_tool(get_trending_pump_tokens_tool()).await;
+    // Register pump tools using Tool struct constructors with context
+    worker
+        .register_tool(Arc::new(DeployPumpTokenTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(BuyPumpTokenTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(SellPumpTokenTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(GetPumpTokenInfoTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(GetTrendingPumpTokensTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
 
     // For this example, we'll create a new keypair
     // In production, you would load from a secure location

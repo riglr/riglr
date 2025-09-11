@@ -261,9 +261,8 @@ async fn test_2_3_parallel_agent_execution() -> Result<()> {
         let handle = tokio::spawn(async move {
             let start = std::time::Instant::now();
 
-            let agent = registry_clone
-                .get_agent(&agent_id)
-                .await
+            let agent_result = registry_clone.get_agent(&agent_id).await;
+            let agent = agent_result
                 .ok()
                 .flatten()
                 .ok_or_else(|| anyhow::anyhow!("Agent not found"))?;
@@ -273,10 +272,10 @@ async fn test_2_3_parallel_agent_execution() -> Result<()> {
                 serde_json::json!({"asset": "Bitcoin"}),
             );
 
-            let result = agent.execute_task(task).await;
+            let task_result = agent.execute_task(task).await;
             let duration = start.elapsed();
 
-            Ok::<_, anyhow::Error>((agent_name, result, duration))
+            Ok::<_, anyhow::Error>((agent_name, task_result, duration))
         });
 
         handles.push(handle);
@@ -285,8 +284,9 @@ async fn test_2_3_parallel_agent_execution() -> Result<()> {
     // Collect results
     let mut results = Vec::new();
     for handle in handles {
-        match handle.await? {
-            Ok((name, result, duration)) => match result {
+        let handle_result = handle.await?;
+        match handle_result {
+            Ok((name, task_result, duration)) => match task_result {
                 Ok(response) => {
                     println!("{} completed in {:?}: {:?}", name, duration, response);
                     results.push((name, response));

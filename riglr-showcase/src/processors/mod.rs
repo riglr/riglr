@@ -165,6 +165,18 @@ pub struct ProcessorPipeline {
     processors: Vec<Box<dyn OutputProcessor>>,
 }
 
+impl std::fmt::Debug for ProcessorPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProcessorPipeline")
+            .field("processor_count", &self.processors.len())
+            .field(
+                "processor_names",
+                &self.processors.iter().map(|p| p.name()).collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
 impl ProcessorPipeline {
     /// Create a new empty pipeline
     pub fn new() -> Self {

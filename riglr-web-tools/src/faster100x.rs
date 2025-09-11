@@ -835,8 +835,30 @@ pub async fn get_holder_trends(
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
+
+    // Test environment variable constants
+    const FASTER100X_API_KEY_TEST: &str = FASTER100X_API_KEY;
+
+    /// Helper function to set environment variables in tests
+    fn set_test_env_var(key: &'static str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests
+    fn remove_test_env_var(key: &'static str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
 
     #[test]
     fn test_faster100x_config_default() {
@@ -912,16 +934,16 @@ mod tests {
     #[test]
     fn test_faster100x_config_with_env_var() {
         // Test when environment variable is set
-        std::env::set_var(FASTER100X_API_KEY, "test-api-key");
+        set_test_env_var(FASTER100X_API_KEY_TEST, "test-api-key");
         let config = Faster100xConfig::default();
         assert_eq!(config.api_key, "test-api-key");
-        std::env::remove_var(FASTER100X_API_KEY);
+        remove_test_env_var(FASTER100X_API_KEY_TEST);
     }
 
     #[test]
     fn test_faster100x_config_without_env_var() {
         // Test when environment variable is not set
-        std::env::remove_var(FASTER100X_API_KEY);
+        remove_test_env_var(FASTER100X_API_KEY_TEST);
         let config = Faster100xConfig::default();
         assert_eq!(config.api_key, "");
     }
@@ -1248,7 +1270,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_faster100x_client_missing_api_key() {
         // Remove API key environment variable
-        std::env::remove_var(FASTER100X_API_KEY);
+        remove_test_env_var(FASTER100X_API_KEY_TEST);
 
         let result = create_faster100x_client().await;
         assert!(result.is_err());
@@ -1261,7 +1283,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_faster100x_client_with_api_key() {
         // Set API key environment variable
-        std::env::set_var(FASTER100X_API_KEY, "test-api-key");
+        set_test_env_var(FASTER100X_API_KEY_TEST, "test-api-key");
 
         let result = create_faster100x_client().await;
         // This might fail due to WebClient::default() requiring actual network setup,
@@ -1274,6 +1296,6 @@ mod tests {
                 .contains("FASTER100X_API_KEY environment variable not set"));
         }
 
-        std::env::remove_var(FASTER100X_API_KEY);
+        remove_test_env_var(FASTER100X_API_KEY_TEST);
     }
 }

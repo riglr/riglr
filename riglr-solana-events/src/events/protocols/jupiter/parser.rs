@@ -27,6 +27,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 /// Jupiter event parser
+#[derive(Debug)]
 pub struct JupiterEventParser {
     program_ids: Vec<Pubkey>,
     inner_instruction_configs: HashMap<&'static str, Vec<GenericEventParseConfig>>,
@@ -157,14 +158,14 @@ impl ProtocolParser for JupiterEventParser {
 
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_inner_instruction_impl(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_instruction_impl(params)
     }
@@ -191,7 +192,7 @@ impl JupiterEventParser {
 
     fn parse_events_from_inner_instruction_impl(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::default();
 
@@ -224,7 +225,7 @@ impl JupiterEventParser {
 
     fn parse_events_from_instruction_impl(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::default();
 

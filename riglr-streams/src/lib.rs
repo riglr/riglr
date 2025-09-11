@@ -165,9 +165,10 @@ mod tests {
         };
 
         // Verify error types are properly accessible
-        match (StreamError::Configuration {
+        let test_error = StreamError::Configuration {
             message: "test".to_string(),
-        }) {
+        };
+        match test_error {
             StreamError::Configuration { .. } => {}
             _ => panic!("StreamError variants not accessible through prelude"),
         }

@@ -9,6 +9,7 @@ use crate::error::{IndexerError, IndexerResult};
 use crate::metrics::{IndexerMetrics, MetricsRegistry, PerformanceMetrics};
 
 /// Main metrics collector
+#[derive(Debug)]
 pub struct MetricsCollector {
     /// Metrics registry
     registry: Arc<MetricsRegistry>,

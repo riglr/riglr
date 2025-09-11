@@ -162,6 +162,7 @@ pub struct TwitterConfig {
 }
 
 /// Twitter tool for social sentiment analysis
+#[derive(Debug)]
 pub struct TwitterTool {
     #[allow(dead_code)]
     config: TwitterConfig,

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 /// Integration utilities for SignerContext management in multi-agent systems.
+#[derive(Debug)]
 pub struct SignerContextIntegration;
 
 impl SignerContextIntegration {
@@ -337,6 +338,7 @@ impl SignerContextIntegration {
 }
 
 /// Wrapper for executing riglr-core tools within agent contexts.
+#[derive(Debug)]
 pub struct ToolExecutor {
     agent: Arc<dyn Agent>,
 }

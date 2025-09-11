@@ -28,6 +28,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 /// Meteora event parser
+#[derive(Debug)]
 pub struct MeteoraEventParser {
     program_ids: Vec<Pubkey>,
     inner_instruction_configs: HashMap<&'static str, Vec<GenericEventParseConfig>>,
@@ -127,14 +128,14 @@ impl ProtocolParser for MeteoraEventParser {
 
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_inner_instruction_impl(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_instruction_impl(params)
     }
@@ -151,7 +152,7 @@ impl ProtocolParser for MeteoraEventParser {
 impl MeteoraEventParser {
     fn parse_events_from_inner_instruction_impl(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -183,7 +184,7 @@ impl MeteoraEventParser {
 
     fn parse_events_from_instruction_impl(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -297,7 +298,7 @@ impl Default for MeteoraEventParser {
 // Parser functions for DLMM instructions
 
 fn parse_meteora_dlmm_swap_inner_instruction(
-    data: &[u8],
+    data: &'_ [u8],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data = parse_meteora_dlmm_swap_data(data).ok_or_else(|| {
@@ -321,8 +322,8 @@ fn parse_meteora_dlmm_swap_inner_instruction(
 }
 
 fn parse_meteora_dlmm_swap_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data =
@@ -347,7 +348,7 @@ fn parse_meteora_dlmm_swap_instruction(
 }
 
 fn parse_meteora_dlmm_add_liquidity_inner_instruction(
-    data: &[u8],
+    data: &'_ [u8],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data(data, true).ok_or_else(|| {
@@ -370,8 +371,8 @@ fn parse_meteora_dlmm_add_liquidity_inner_instruction(
 }
 
 fn parse_meteora_dlmm_add_liquidity_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, true)
@@ -395,7 +396,7 @@ fn parse_meteora_dlmm_add_liquidity_instruction(
 }
 
 fn parse_meteora_dlmm_remove_liquidity_inner_instruction(
-    data: &[u8],
+    data: &'_ [u8],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data(data, false).ok_or_else(|| {
@@ -416,8 +417,8 @@ fn parse_meteora_dlmm_remove_liquidity_inner_instruction(
 }
 
 fn parse_meteora_dlmm_remove_liquidity_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, false)
@@ -441,7 +442,7 @@ fn parse_meteora_dlmm_remove_liquidity_instruction(
 // Parser functions for Dynamic AMM instructions
 
 fn parse_meteora_dynamic_add_liquidity_inner_instruction(
-    data: &[u8],
+    data: &'_ [u8],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data(data, true).ok_or_else(|| {
@@ -462,8 +463,8 @@ fn parse_meteora_dynamic_add_liquidity_inner_instruction(
 }
 
 fn parse_meteora_dynamic_add_liquidity_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data_from_instruction(
@@ -487,7 +488,7 @@ fn parse_meteora_dynamic_add_liquidity_instruction(
 }
 
 fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
-    data: &[u8],
+    data: &'_ [u8],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data(data, false).ok_or_else(|| {
@@ -508,8 +509,8 @@ fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
 }
 
 fn parse_meteora_dynamic_remove_liquidity_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data_from_instruction(
@@ -534,7 +535,7 @@ fn parse_meteora_dynamic_remove_liquidity_instruction(
 
 // Data parsing helpers
 
-fn parse_meteora_dlmm_swap_data(data: &[u8]) -> Option<MeteoraSwapData> {
+fn parse_meteora_dlmm_swap_data(data: &'_ [u8]) -> Option<MeteoraSwapData> {
     if data.len() < 32 {
         return None;
     }
@@ -569,8 +570,8 @@ fn parse_meteora_dlmm_swap_data(data: &[u8]) -> Option<MeteoraSwapData> {
 }
 
 fn parse_meteora_dlmm_swap_data_from_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
 ) -> Option<MeteoraSwapData> {
     let mut swap_data = parse_meteora_dlmm_swap_data(data)?;
 
@@ -586,7 +587,7 @@ fn parse_meteora_dlmm_swap_data_from_instruction(
     Some(swap_data)
 }
 
-fn parse_meteora_dlmm_liquidity_data(data: &[u8], is_add: bool) -> Option<MeteoraLiquidityData> {
+fn parse_meteora_dlmm_liquidity_data(data: &'_ [u8], is_add: bool) -> Option<MeteoraLiquidityData> {
     if data.len() < 48 {
         return None;
     }
@@ -627,8 +628,8 @@ fn parse_meteora_dlmm_liquidity_data(data: &[u8], is_add: bool) -> Option<Meteor
 }
 
 fn parse_meteora_dlmm_liquidity_data_from_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     is_add: bool,
 ) -> Option<MeteoraLiquidityData> {
     let mut liquidity_data = parse_meteora_dlmm_liquidity_data(data, is_add)?;
@@ -646,7 +647,7 @@ fn parse_meteora_dlmm_liquidity_data_from_instruction(
 }
 
 fn parse_meteora_dynamic_liquidity_data(
-    data: &[u8],
+    data: &'_ [u8],
     is_deposit: bool,
 ) -> Option<MeteoraDynamicLiquidityData> {
     if data.len() < 48 {
@@ -682,8 +683,8 @@ fn parse_meteora_dynamic_liquidity_data(
 }
 
 fn parse_meteora_dynamic_liquidity_data_from_instruction(
-    data: &[u8],
-    accounts: &[Pubkey],
+    data: &'_ [u8],
+    accounts: &'_ [Pubkey],
     is_deposit: bool,
 ) -> Option<MeteoraDynamicLiquidityData> {
     let mut liquidity_data = parse_meteora_dynamic_liquidity_data(data, is_deposit)?;

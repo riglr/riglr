@@ -186,6 +186,7 @@ pub trait ToSolanaEvent {
 
 /// Macro to easily implement ToSolanaEvent for existing event types
 #[macro_export]
+#[allow(edition_2024_expr_fragment_specifier)]
 macro_rules! impl_to_solana_event {
     ($event_type:ty, $data_extractor:expr) => {
         impl ToSolanaEvent for $event_type {

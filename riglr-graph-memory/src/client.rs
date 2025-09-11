@@ -163,9 +163,8 @@ impl Neo4jClient {
             req_builder = req_builder.basic_auth(username, Some(password));
         }
 
-        let response = req_builder
-            .send()
-            .await
+        let response_result = req_builder.send().await;
+        let response = response_result
             .map_err(|e| GraphMemoryError::Database(format!("HTTP request failed: {}", e)))?;
 
         self.handle_response(response).await
@@ -174,9 +173,8 @@ impl Neo4jClient {
     /// Handle HTTP response and extract query results
     async fn handle_response(&self, response: Response) -> Result<Value> {
         let status = response.status();
-        let response_text = response
-            .text()
-            .await
+        let text_result = response.text().await;
+        let response_text = text_result
             .map_err(|e| GraphMemoryError::Database(format!("Failed to read response: {}", e)))?;
 
         if !status.is_success() {
@@ -258,7 +256,8 @@ impl Neo4jClient {
         ];
 
         for index_query in indexes {
-            match self.execute_query(index_query, None).await {
+            let query_result = self.execute_query(index_query, None).await;
+            match query_result {
                 Ok(_) => debug!("Created index successfully: {}", index_query),
                 Err(e) => {
                     warn!("Failed to create index '{}': {}", index_query, e);
@@ -296,7 +295,8 @@ impl Neo4jClient {
         let mut stats = HashMap::new();
 
         for (stat_name, query) in queries {
-            match self.simple_query(query).await {
+            let query_result = self.simple_query(query).await;
+            match query_result {
                 Ok(results) => {
                     if let Some(value) = results.first() {
                         stats.insert(stat_name.to_string(), value.clone());

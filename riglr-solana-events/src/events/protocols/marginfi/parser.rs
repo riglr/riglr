@@ -35,6 +35,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 /// MarginFi event parser
+#[derive(Debug)]
 pub struct MarginFiEventParser {
     program_ids: Vec<Pubkey>,
     inner_instruction_configs: HashMap<&'static str, Vec<GenericEventParseConfig>>,
@@ -129,14 +130,14 @@ impl ProtocolParser for MarginFiEventParser {
 
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_inner_instruction_impl(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.parse_events_from_instruction_impl(params)
     }
@@ -153,7 +154,7 @@ impl ProtocolParser for MarginFiEventParser {
 impl MarginFiEventParser {
     fn parse_events_from_inner_instruction_impl(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
@@ -185,7 +186,7 @@ impl MarginFiEventParser {
 
     fn parse_events_from_instruction_impl(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 

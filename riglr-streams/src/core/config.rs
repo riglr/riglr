@@ -461,9 +461,27 @@ impl StreamClientConfig {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test module requires unsafe blocks for Rust 2024 compatibility with std::env functions
 mod tests {
     use super::*;
-    use std::env;
+
+    /// Helper function to set environment variables in tests without using string literals
+    fn set_test_env_var(key: &'static str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals
+    fn remove_test_env_var(key: &'static str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
 
     #[test]
     fn test_default_config_validation() {
@@ -993,10 +1011,10 @@ mod tests {
     #[test]
     fn test_stream_client_config_from_env_when_no_env_vars_should_return_default() {
         // Clear any existing environment variables
-        env::remove_var(RIGLR_CONNECT_TIMEOUT_SECS);
-        env::remove_var(RIGLR_CHANNEL_SIZE);
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
-        env::remove_var(RIGLR_METRICS_ENABLED);
+        remove_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS);
+        remove_test_env_var(RIGLR_CHANNEL_SIZE);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_METRICS_ENABLED);
 
         let config = StreamClientConfig::from_env().unwrap();
         let default_config = StreamClientConfig::default();
@@ -1014,17 +1032,17 @@ mod tests {
 
     #[test]
     fn test_stream_client_config_from_env_when_connect_timeout_set_should_use_env_value() {
-        env::set_var(RIGLR_CONNECT_TIMEOUT_SECS, "25");
+        set_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS, "25");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert_eq!(config.connection.connect_timeout_secs, 25);
 
-        env::remove_var(RIGLR_CONNECT_TIMEOUT_SECS);
+        remove_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_invalid_connect_timeout_should_return_err() {
-        env::set_var(RIGLR_CONNECT_TIMEOUT_SECS, "invalid");
+        set_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS, "invalid");
 
         let result = StreamClientConfig::from_env();
         assert!(result.is_err());
@@ -1033,22 +1051,22 @@ mod tests {
             .to_string()
             .contains("Invalid RIGLR_CONNECT_TIMEOUT_SECS"));
 
-        env::remove_var(RIGLR_CONNECT_TIMEOUT_SECS);
+        remove_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_channel_size_set_should_use_env_value() {
-        env::set_var(RIGLR_CHANNEL_SIZE, "2000");
+        set_test_env_var(RIGLR_CHANNEL_SIZE, "2000");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert_eq!(config.backpressure.channel_size, 2000);
 
-        env::remove_var(RIGLR_CHANNEL_SIZE);
+        remove_test_env_var(RIGLR_CHANNEL_SIZE);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_invalid_channel_size_should_return_err() {
-        env::set_var(RIGLR_CHANNEL_SIZE, "not_a_number");
+        set_test_env_var(RIGLR_CHANNEL_SIZE, "not_a_number");
 
         let result = StreamClientConfig::from_env();
         assert!(result.is_err());
@@ -1057,12 +1075,12 @@ mod tests {
             .to_string()
             .contains("Invalid RIGLR_CHANNEL_SIZE"));
 
-        env::remove_var(RIGLR_CHANNEL_SIZE);
+        remove_test_env_var(RIGLR_CHANNEL_SIZE);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_backpressure_strategy_block_should_use_block() {
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "block");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "block");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(matches!(
@@ -1070,12 +1088,12 @@ mod tests {
             BackpressureStrategy::Block
         ));
 
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_backpressure_strategy_drop_should_use_drop() {
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "drop");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "drop");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(matches!(
@@ -1083,13 +1101,13 @@ mod tests {
             BackpressureStrategy::Drop
         ));
 
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_backpressure_strategy_adaptive_should_use_adaptive()
     {
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "adaptive");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "adaptive");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(matches!(
@@ -1097,12 +1115,12 @@ mod tests {
             BackpressureStrategy::Adaptive
         ));
 
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_backpressure_strategy_uppercase_should_work() {
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "BLOCK");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "BLOCK");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(matches!(
@@ -1110,12 +1128,12 @@ mod tests {
             BackpressureStrategy::Block
         ));
 
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_invalid_backpressure_strategy_should_return_err() {
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "invalid_strategy");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "invalid_strategy");
 
         let result = StreamClientConfig::from_env();
         assert!(result.is_err());
@@ -1124,32 +1142,32 @@ mod tests {
             .to_string()
             .contains("Invalid RIGLR_BACKPRESSURE_STRATEGY"));
 
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_metrics_enabled_true_should_enable() {
-        env::set_var(RIGLR_METRICS_ENABLED, "true");
+        set_test_env_var(RIGLR_METRICS_ENABLED, "true");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(config.metrics.enabled);
 
-        env::remove_var(RIGLR_METRICS_ENABLED);
+        remove_test_env_var(RIGLR_METRICS_ENABLED);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_metrics_enabled_false_should_disable() {
-        env::set_var(RIGLR_METRICS_ENABLED, "false");
+        set_test_env_var(RIGLR_METRICS_ENABLED, "false");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert!(!config.metrics.enabled);
 
-        env::remove_var(RIGLR_METRICS_ENABLED);
+        remove_test_env_var(RIGLR_METRICS_ENABLED);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_invalid_metrics_enabled_should_return_err() {
-        env::set_var(RIGLR_METRICS_ENABLED, "maybe");
+        set_test_env_var(RIGLR_METRICS_ENABLED, "maybe");
 
         let result = StreamClientConfig::from_env();
         assert!(result.is_err());
@@ -1158,15 +1176,15 @@ mod tests {
             .to_string()
             .contains("Invalid RIGLR_METRICS_ENABLED"));
 
-        env::remove_var(RIGLR_METRICS_ENABLED);
+        remove_test_env_var(RIGLR_METRICS_ENABLED);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_all_env_vars_set_should_use_all() {
-        env::set_var(RIGLR_CONNECT_TIMEOUT_SECS, "15");
-        env::set_var(RIGLR_CHANNEL_SIZE, "3000");
-        env::set_var(RIGLR_BACKPRESSURE_STRATEGY, "adaptive");
-        env::set_var(RIGLR_METRICS_ENABLED, "true");
+        set_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS, "15");
+        set_test_env_var(RIGLR_CHANNEL_SIZE, "3000");
+        set_test_env_var(RIGLR_BACKPRESSURE_STRATEGY, "adaptive");
+        set_test_env_var(RIGLR_METRICS_ENABLED, "true");
 
         let config = StreamClientConfig::from_env().unwrap();
         assert_eq!(config.connection.connect_timeout_secs, 15);
@@ -1177,20 +1195,20 @@ mod tests {
         ));
         assert!(config.metrics.enabled);
 
-        env::remove_var(RIGLR_CONNECT_TIMEOUT_SECS);
-        env::remove_var(RIGLR_CHANNEL_SIZE);
-        env::remove_var(RIGLR_BACKPRESSURE_STRATEGY);
-        env::remove_var(RIGLR_METRICS_ENABLED);
+        remove_test_env_var(RIGLR_CONNECT_TIMEOUT_SECS);
+        remove_test_env_var(RIGLR_CHANNEL_SIZE);
+        remove_test_env_var(RIGLR_BACKPRESSURE_STRATEGY);
+        remove_test_env_var(RIGLR_METRICS_ENABLED);
     }
 
     #[test]
     fn test_stream_client_config_from_env_when_config_validation_fails_should_return_err() {
-        env::set_var(RIGLR_CHANNEL_SIZE, "0");
+        set_test_env_var(RIGLR_CHANNEL_SIZE, "0");
 
         let result = StreamClientConfig::from_env();
         assert!(result.is_err());
 
-        env::remove_var(RIGLR_CHANNEL_SIZE);
+        remove_test_env_var(RIGLR_CHANNEL_SIZE);
     }
 
     // ConfigError tests

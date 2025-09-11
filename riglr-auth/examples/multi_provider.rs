@@ -1,11 +1,43 @@
 //! Example demonstrating multiple authentication providers
 
 use riglr_auth::config::ProviderConfig;
-use riglr_auth::{
-    AuthProvider, CompositeSignerFactoryExt, MagicConfig, PrivyConfig, Web3AuthConfig,
-};
-use riglr_web_adapters::factory::{AuthenticationData, CompositeSignerFactory, SignerFactory};
+use riglr_auth::provider::{AuthenticationData, SignerFactory};
+use riglr_auth::{AuthProvider, MagicConfig, PrivyConfig, Web3AuthConfig};
+use riglr_core::signer::UnifiedSigner;
 use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Simple composite factory for demonstration
+#[derive(Default)]
+struct CompositeSignerFactory {
+    factories: HashMap<String, Arc<dyn SignerFactory>>,
+}
+
+impl CompositeSignerFactory {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>) {
+        self.factories.insert(auth_type, Arc::from(factory));
+    }
+
+    fn get_registered_auth_types(&self) -> Vec<String> {
+        self.factories.keys().cloned().collect()
+    }
+
+    async fn create_signer(
+        &self,
+        auth_data: AuthenticationData,
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
+        let factory = self
+            .factories
+            .get(&auth_data.auth_type)
+            .ok_or_else(|| format!("Unsupported auth type: {}", auth_data.auth_type))?;
+
+        factory.create_signer(auth_data).await
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,7 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Register Privy provider if configured
     match PrivyConfig::from_env() {
         Ok(config) => {
-            factory.register_provider(AuthProvider::privy(config));
+            let provider = AuthProvider::privy(config);
+            factory.register_factory(provider.auth_type(), Box::new(provider));
             println!("✅ Privy provider registered");
         }
         Err(e) => {
@@ -31,7 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Register Web3Auth provider if configured
     match Web3AuthConfig::from_env() {
         Ok(config) => {
-            factory.register_provider(AuthProvider::web3auth(config));
+            let provider = AuthProvider::web3auth(config);
+            factory.register_factory(provider.auth_type(), Box::new(provider));
             println!("✅ Web3Auth provider registered");
         }
         Err(e) => {
@@ -42,7 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Register Magic provider if configured
     match MagicConfig::from_env() {
         Ok(config) => {
-            factory.register_provider(AuthProvider::magic(config));
+            let provider = AuthProvider::magic(config);
+            factory.register_factory(provider.auth_type(), Box::new(provider));
             println!("✅ Magic.link provider registered");
         }
         Err(e) => {

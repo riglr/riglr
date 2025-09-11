@@ -558,6 +558,86 @@ pub enum TransactionStatus {
     Failed(String),
 }
 
+// Implementation of the Tool trait for the generated structs to bridge RigTool to Tool
+use crate::__riglr_tool_transfer_sol::TransferSolTool;
+
+#[async_trait::async_trait]
+impl riglr_core::Tool for TransferSolTool {
+    type Args = serde_json::Value;
+    type Output = riglr_core::JobResult;
+    type Error = riglr_core::ToolError;
+
+    fn name(&self) -> &'static str {
+        "transfer_sol"
+    }
+
+    fn description(&self) -> &'static str {
+        "Transfer SOL from one account to another"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "recipient": {
+                    "type": "string",
+                    "description": "Recipient wallet address (base58 encoded public key)"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to transfer in SOL (e.g., 0.001 for 1,000,000 lamports)"
+                },
+                "memo": {
+                    "type": "string",
+                    "description": "Optional memo to include in the transaction for record keeping"
+                },
+                "priority_fee": {
+                    "type": "integer",
+                    "description": "Optional priority fee in microlamports for faster processing"
+                }
+            },
+            "required": ["recipient", "amount"]
+        })
+    }
+
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        // Parse arguments from JSON
+        let recipient: String = serde_json::from_value(
+            args.get("recipient")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        )
+        .map_err(|e| {
+            riglr_core::ToolError::permanent_string(format!("Invalid recipient parameter: {}", e))
+        })?;
+
+        let amount: f64 = serde_json::from_value(
+            args.get("amount")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        )
+        .map_err(|e| {
+            riglr_core::ToolError::permanent_string(format!("Invalid amount parameter: {}", e))
+        })?;
+
+        let memo: Option<String> = args
+            .get("memo")
+            .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+        let priority_fee: Option<u64> = args
+            .get("priority_fee")
+            .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+        // Call the actual tool function
+        let result = transfer_sol(recipient, amount, memo, priority_fee, &self.context).await?;
+
+        // Convert result to JobResult
+        riglr_core::JobResult::success(&result).map_err(|e| {
+            riglr_core::ToolError::permanent_string(format!("Failed to serialize result: {}", e))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

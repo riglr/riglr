@@ -136,8 +136,9 @@ impl EventDeduplicator {
     /// Check if an event is a duplicate
     pub async fn is_duplicate(&self, event: &dyn Event) -> bool {
         let event_id = event.id();
+        let seen_entry = self.seen_events.get(event_id);
 
-        if let Some(seen_at) = self.seen_events.get(event_id) {
+        if let Some(seen_at) = seen_entry {
             // Check if the event is still within TTL
             seen_at.value().elapsed().unwrap_or_default() < self.ttl
         } else {
@@ -237,6 +238,7 @@ impl RateLimiter {
 }
 
 /// Stream transformation utilities
+#[derive(Debug)]
 pub struct StreamUtils;
 
 impl StreamUtils {

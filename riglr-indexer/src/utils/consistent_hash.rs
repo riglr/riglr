@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 
 /// Consistent hash ring for distributing work across nodes
+#[derive(Debug)]
 pub struct ConsistentHash {
     /// Virtual nodes on the hash ring
     ring: BTreeMap<u64, String>,
@@ -170,6 +171,7 @@ impl ConsistentHash {
 }
 
 /// Builder for consistent hash ring
+#[derive(Debug)]
 pub struct ConsistentHashBuilder {
     virtual_nodes: usize,
     nodes: Vec<(String, u32, HashMap<String, String>)>,

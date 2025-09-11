@@ -85,10 +85,6 @@ testcontainers-modules = { version = "0.12.1", features = ["redis"] }
 
 
 [[bench]]
-name = "adapter_benchmark"
-harness = false
-
-[[bench]]
 name = "redis_queue_benchmark"
 harness = false
 required-features = ["redis"]

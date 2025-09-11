@@ -499,9 +499,13 @@ mod tests {
     use serde_json::json;
     #[cfg(feature = "solana")]
     use solana_sdk::{message::Message, pubkey::Pubkey, signature::Signature};
+    // NOTE: Using deprecated solana_sdk::system_instruction instead of solana_system_interface
+    // to avoid Address vs Pubkey type mismatches and solana-instruction crate version conflicts.
+    // The newer solana_system_interface requires Address types but our codebase uses Pubkey,
+    // leading to compilation errors. This should be migrated in a broader dependency update.
     #[cfg(feature = "solana")]
     #[allow(deprecated)]
-    use solana_system_interface::instruction as system_instruction;
+    use solana_sdk::system_instruction;
 
     #[cfg(feature = "solana")]
     mod solana_signer_tests {

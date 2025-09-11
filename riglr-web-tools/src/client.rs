@@ -415,7 +415,8 @@ impl WebClient {
         while attempts < self.http_config.max_retries {
             attempts += 1;
 
-            match request_fn().await {
+            let request_result = request_fn().await;
+            match request_result {
                 Ok(response) => {
                     let status = response.status();
 
@@ -504,7 +505,8 @@ impl WebClient {
         while attempts < self.http_config.max_retries {
             attempts += 1;
 
-            match request_fn().await {
+            let request_result = request_fn().await;
+            match request_result {
                 Ok(response) => {
                     let status = response.status();
 
@@ -609,8 +611,10 @@ impl WebClient {
         url: &str,
         params: &HashMap<String, String>,
     ) -> Result<String> {
-        self.get_with_params_and_headers(url, params, HashMap::new())
-            .await
+        let result = self
+            .get_with_params_and_headers(url, params, HashMap::new())
+            .await;
+        result
     }
 
     /// Make GET request with query parameters and headers
@@ -642,7 +646,8 @@ impl WebClient {
 
     /// Make a POST request with JSON body
     pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value> {
-        self.post_with_headers(url, body, HashMap::new()).await
+        let result = self.post_with_headers(url, body, HashMap::new()).await;
+        result
     }
 
     /// Make a POST request with JSON body and headers

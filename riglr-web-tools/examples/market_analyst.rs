@@ -282,7 +282,7 @@ async fn find_trending_opportunities(context: &ApplicationContext) -> anyhow::Re
         println!("   Volume: ${:.0}", token.volume_24h.unwrap_or(0.0));
 
         // Quick sentiment check
-        if let Ok(tweets) = search_tweets(
+        let search_result = search_tweets(
             context,
             format!("${}", token.symbol),
             Some(10),
@@ -291,8 +291,8 @@ async fn find_trending_opportunities(context: &ApplicationContext) -> anyhow::Re
             None,
             None,
         )
-        .await
-        {
+        .await;
+        if let Ok(tweets) = search_result {
             println!("   Twitter mentions: {}", tweets.tweets.len());
         }
 
@@ -310,14 +310,14 @@ async fn monitor_sentiment_shifts(context: &ApplicationContext) -> anyhow::Resul
         println!("Analyzing sentiment for {}...", token);
 
         // Get current sentiment
-        match analyze_crypto_sentiment(
+        let sentiment_result = analyze_crypto_sentiment(
             context,
             token.to_string(),
             Some(6),  // Last 6 hours
             Some(20), // Lower threshold for faster results
         )
-        .await
-        {
+        .await;
+        match sentiment_result {
             Ok(sentiment) => {
                 let sentiment_emoji = if sentiment.overall_sentiment > 0.6 {
                     "🟢"
@@ -362,30 +362,30 @@ async fn scan_arbitrage_opportunities(_context: &ApplicationContext) -> anyhow::
         // Get price on Ethereum
         let config = Config::from_env();
         let context = ApplicationContext::from_config(&config);
-        if let Ok(eth_info) = get_token_info(
+        let eth_result = get_token_info(
             &context,
             address.to_string(),
             Some("ethereum".to_string()),
             None,
             None,
         )
-        .await
-        {
+        .await;
+        if let Ok(eth_info) = eth_result {
             println!("  Ethereum: ${:.4}", eth_info.price_usd.unwrap_or(0.0));
         }
 
         // Get price on other chains (would need different addresses in reality)
         let config = Config::from_env();
         let context = ApplicationContext::from_config(&config);
-        if let Ok(bsc_info) = get_token_info(
+        let bsc_result = get_token_info(
             &context,
             address.to_string(),
             Some("bsc".to_string()),
             None,
             None,
         )
-        .await
-        {
+        .await;
+        if let Ok(bsc_info) = bsc_result {
             println!("  BSC: ${:.4}", bsc_info.price_usd.unwrap_or(0.0));
 
             // Calculate potential arbitrage

@@ -1,9 +1,9 @@
 //! Privy authentication provider implementation
 
+use crate::provider::{AuthenticationData, SignerFactory};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use riglr_core::signer::UnifiedSigner;
-use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 #[cfg(any(feature = "solana", feature = "evm"))]
 use tracing::debug;
 use tracing::info;
@@ -30,6 +30,7 @@ use lru::LruCache;
 use std::sync::{Arc, Mutex};
 
 /// Privy authentication provider
+#[derive(Debug)]
 pub struct PrivyProvider {
     config: PrivyConfig,
     client: reqwest::Client,
@@ -86,11 +87,13 @@ impl PrivyProvider {
 
         // Get verification key (in production, fetch from JWKS endpoint)
         let verification_key = self.get_verification_key().await?;
-        let key = DecodingKey::from_ec_pem(verification_key.as_bytes())
+        let key_create_result = DecodingKey::from_ec_pem(verification_key.as_bytes());
+        let key = key_create_result
             .map_err(|e| AuthError::ConfigError(format!("Invalid verification key: {}", e)))?;
 
         // Decode and validate token
-        let token_data = decode::<PrivyClaims>(token, &key, &validation)
+        let decode_result = decode::<PrivyClaims>(token, &key, &validation);
+        let token_data = decode_result
             .map_err(|e| AuthError::TokenValidation(format!("Token validation failed: {}", e)))?;
 
         Ok(token_data.claims)
@@ -100,8 +103,10 @@ impl PrivyProvider {
     async fn get_verification_key(&self) -> AuthResult<String> {
         // In production, fetch from JWKS endpoint
         // For now, get from environment
-        std::env::var(PRIVY_VERIFICATION_KEY)
-            .map_err(|_| AuthError::ConfigError("Missing PRIVY_VERIFICATION_KEY".to_string()))
+        let env_result = std::env::var(PRIVY_VERIFICATION_KEY);
+        let env_map_result = env_result
+            .map_err(|_| AuthError::ConfigError("Missing PRIVY_VERIFICATION_KEY".to_string()));
+        env_map_result
     }
 
     /// Fetch user data from Privy API
@@ -124,25 +129,23 @@ impl PrivyProvider {
 
         info!("Fetching user data for {}", user_id);
 
-        let response = self
-            .client
-            .get(format!("{}/api/v1/users/{}", self.config.auth_url, user_id))
-            .send()
-            .await
+        let url = format!("{}/api/v1/users/{}", self.config.auth_url, user_id);
+        let send_result = self.client.get(url).send().await;
+        let response = send_result
             .map_err(|e| AuthError::ApiError(format!("Failed to fetch user data: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            let text_result = response.text().await;
+            let body = text_result.unwrap_or_default();
             return Err(AuthError::ApiError(format!(
                 "Failed to fetch user data: {} - {}",
                 status, body
             )));
         }
 
-        let user_data: PrivyUserData = response
-            .json()
-            .await
+        let json_result = response.json().await;
+        let user_data: PrivyUserData = json_result
             .map_err(|e| AuthError::ApiError(format!("Failed to parse user data: {}", e)))?;
 
         #[cfg(feature = "caching")]
@@ -294,9 +297,35 @@ pub fn create_privy_provider() -> AuthResult<PrivyProvider> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riglr_web_adapters::factory::AuthenticationData;
+    use crate::provider::AuthenticationData;
     use std::collections::HashMap;
     use tokio;
+
+    /// Test helper functions for Rust 2024 compatibility
+    #[allow(unsafe_code)]
+    mod test_env_vars {
+        /// Set environment variable safely for tests
+        ///
+        /// # Safety
+        /// This function is only used in test contexts and follows Rust 2024 requirements
+        /// for std::env::set_var usage in test environments.
+        pub fn set_test_env_var(key: &str, value: &str) {
+            unsafe {
+                std::env::set_var(key, value);
+            }
+        }
+
+        /// Remove environment variable safely for tests
+        ///
+        /// # Safety
+        /// This function is only used in test contexts and follows Rust 2024 requirements
+        /// for std::env::remove_var usage in test environments.
+        pub fn remove_test_env_var(key: &str) {
+            unsafe {
+                std::env::remove_var(key);
+            }
+        }
+    }
 
     // Helper function to create a test PrivyConfig
     fn create_test_config() -> PrivyConfig {
@@ -354,7 +383,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_verification_key_when_env_var_set_should_return_key() {
-        std::env::set_var(PRIVY_VERIFICATION_KEY, "test_key");
+        test_env_vars::set_test_env_var(PRIVY_VERIFICATION_KEY, "test_key");
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -363,12 +392,12 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "test_key");
 
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
     }
 
     #[tokio::test]
     async fn test_get_verification_key_when_env_var_missing_should_return_error() {
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -383,7 +412,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_token_when_missing_verification_key_should_return_error() {
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -398,7 +427,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_token_with_invalid_key_format_should_return_error() {
-        std::env::set_var(PRIVY_VERIFICATION_KEY, "invalid_key_format");
+        test_env_vars::set_test_env_var(PRIVY_VERIFICATION_KEY, "invalid_key_format");
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -410,15 +439,15 @@ mod tests {
             _ => panic!("Expected ConfigError"),
         }
 
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
     }
 
     #[test]
     fn test_create_privy_provider_when_config_invalid_should_return_error() {
         // Clear environment variables to ensure config creation fails
-        std::env::remove_var(PRIVY_APP_ID);
-        std::env::remove_var(PRIVY_APP_SECRET);
-        std::env::remove_var(PRIVY_AUTH_URL);
+        test_env_vars::remove_test_env_var(PRIVY_APP_ID);
+        test_env_vars::remove_test_env_var(PRIVY_APP_SECRET);
+        test_env_vars::remove_test_env_var(PRIVY_AUTH_URL);
 
         let result = create_privy_provider();
         assert!(result.is_err());
@@ -427,22 +456,22 @@ mod tests {
     #[test]
     fn test_create_privy_provider_when_config_valid_should_return_provider() {
         // Set environment variables for valid config
-        std::env::set_var(PRIVY_APP_ID, "test_app_id");
-        std::env::set_var(PRIVY_APP_SECRET, "test_app_secret");
-        std::env::set_var(PRIVY_AUTH_URL, "https://test.privy.io");
+        test_env_vars::set_test_env_var(PRIVY_APP_ID, "test_app_id");
+        test_env_vars::set_test_env_var(PRIVY_APP_SECRET, "test_app_secret");
+        test_env_vars::set_test_env_var(PRIVY_AUTH_URL, "https://test.privy.io");
 
         let result = create_privy_provider();
         assert!(result.is_ok());
 
         // Clean up
-        std::env::remove_var(PRIVY_APP_ID);
-        std::env::remove_var(PRIVY_APP_SECRET);
-        std::env::remove_var(PRIVY_AUTH_URL);
+        test_env_vars::remove_test_env_var(PRIVY_APP_ID);
+        test_env_vars::remove_test_env_var(PRIVY_APP_SECRET);
+        test_env_vars::remove_test_env_var(PRIVY_AUTH_URL);
     }
 
     #[tokio::test]
     async fn test_validate_token_when_verification_fails_should_return_error() {
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -495,7 +524,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_signer_when_token_verification_fails_should_return_error() {
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -518,7 +547,7 @@ mod tests {
     async fn test_create_signer_when_no_features_should_return_no_wallet_error() {
         // This test only runs when neither solana nor evm features are enabled
         // It tests the fallback case where no signers are available
-        std::env::set_var(PRIVY_VERIFICATION_KEY, "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----");
+        test_env_vars::set_test_env_var(PRIVY_VERIFICATION_KEY, "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----");
 
         let config = create_test_config();
         let provider = PrivyProvider::new(config);
@@ -537,7 +566,7 @@ mod tests {
         let result = provider.create_signer(auth_data).await;
         assert!(result.is_err());
 
-        std::env::remove_var(PRIVY_VERIFICATION_KEY);
+        test_env_vars::remove_test_env_var(PRIVY_VERIFICATION_KEY);
     }
 
     // Mock HTTP server tests would require additional dependencies

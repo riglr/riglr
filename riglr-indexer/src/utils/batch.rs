@@ -7,6 +7,7 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, warn};
 
 /// Batch processor for collecting items and processing them in batches
+#[derive(Debug)]
 pub struct BatchProcessor<T> {
     /// Maximum batch size
     max_size: usize,
@@ -20,7 +21,7 @@ pub struct BatchProcessor<T> {
     batch_receiver: RwLock<Option<mpsc::UnboundedReceiver<Vec<T>>>>,
 }
 
-impl<T: Send + Sync + 'static> BatchProcessor<T> {
+impl<T: Send + Sync + std::fmt::Debug + 'static> BatchProcessor<T> {
     /// Create a new batch processor
     pub fn new(max_size: usize, max_age: Duration) -> Self {
         let (batch_sender, batch_receiver) = mpsc::unbounded_channel();
@@ -77,7 +78,8 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
                         let items: Vec<T> = batch.drain(..).map(|(item, _)| item).collect();
                         if !items.is_empty() {
                             debug!("Age-based flush: {} items", items.len());
-                            if let Err(e) = batch_sender.send(items) {
+                            let send_result = batch_sender.send(items);
+                            if let Err(e) = send_result {
                                 warn!("Failed to send age-based batch: {}", e);
                                 break;
                             }
@@ -92,7 +94,8 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     pub async fn next_batch(&self) -> Option<Vec<T>> {
         let mut receiver_guard = self.batch_receiver.write().await;
         if let Some(receiver) = receiver_guard.as_mut() {
-            receiver.recv().await
+            let result = receiver.recv().await;
+            result
         } else {
             None
         }
@@ -102,7 +105,8 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     pub async fn try_next_batch(&self) -> Option<Vec<T>> {
         let mut receiver_guard = self.batch_receiver.write().await;
         if let Some(receiver) = receiver_guard.as_mut() {
-            receiver.try_recv().ok()
+            let result = receiver.try_recv().ok();
+            result
         } else {
             None
         }
@@ -111,7 +115,8 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     /// Flush the current batch immediately
     pub async fn flush(&self) -> Result<(), BatchProcessorError> {
         let mut batch = self.current_batch.write().await;
-        self.flush_batch(&mut batch).await
+        let result = self.flush_batch(&mut batch).await;
+        result
     }
 
     /// Internal method to flush a batch

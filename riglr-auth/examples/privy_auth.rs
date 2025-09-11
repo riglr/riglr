@@ -2,9 +2,27 @@
 
 use axum::{http::StatusCode, routing::post, Json, Router};
 use riglr_auth::config::ProviderConfig;
-use riglr_auth::{AuthProvider, CompositeSignerFactoryExt, PrivyConfig};
-use riglr_web_adapters::factory::CompositeSignerFactory;
+use riglr_auth::provider::SignerFactory;
+use riglr_auth::{AuthProvider, PrivyConfig};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Simple composite factory for demonstration
+#[derive(Default)]
+struct CompositeSignerFactory {
+    factories: HashMap<String, Arc<dyn SignerFactory>>,
+}
+
+impl CompositeSignerFactory {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>) {
+        self.factories.insert(auth_type, Arc::from(factory));
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct AuthRequest {
@@ -30,7 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create composite factory and register Privy provider
     let mut _factory = CompositeSignerFactory::new();
-    _factory.register_provider(AuthProvider::privy(privy_config));
+    let privy_provider = AuthProvider::privy(privy_config);
+    _factory.register_factory(privy_provider.auth_type(), Box::new(privy_provider));
 
     // Build Axum router
     let app = Router::new().route("/auth", post(handle_auth));

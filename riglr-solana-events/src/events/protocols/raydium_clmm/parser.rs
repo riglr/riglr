@@ -26,6 +26,7 @@ pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
 
 /// Raydium CLMM event parser
+#[derive(Debug)]
 pub struct RaydiumClmmEventParser {
     inner: GenericEventParser,
 }
@@ -658,14 +659,14 @@ impl ProtocolParser for RaydiumClmmEventParser {
     }
     fn parse_events_from_inner_instruction(
         &self,
-        params: &crate::events::factory::InnerInstructionParseParams,
+        params: &crate::events::factory::InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(params)
     }
 
     fn parse_events_from_instruction(
         &self,
-        params: &crate::events::factory::InstructionParseParams,
+        params: &crate::events::factory::InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(params)
     }

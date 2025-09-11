@@ -44,6 +44,7 @@ pub use parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolPars
 /// });
 /// ```
 #[macro_export]
+#[allow(edition_2024_expr_fragment_specifier)]
 macro_rules! match_event {
     ($event:expr, { $($event_type:ty => |$var:ident: $event_type_full:ty| $body:block),* $(,)? }) => {
         {

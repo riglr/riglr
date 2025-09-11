@@ -483,6 +483,7 @@ impl ByteSliceEventParser for MetaplexParser {
 }
 
 /// Factory for creating Metaplex parsers
+#[derive(Debug)]
 pub struct MetaplexParserFactory;
 
 impl MetaplexParserFactory {

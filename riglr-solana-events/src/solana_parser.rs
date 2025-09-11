@@ -52,6 +52,7 @@ pub struct SolanaInnerInstructionInput {
 }
 
 /// Solana event parser that bridges between legacy and new parsers
+#[derive(Debug)]
 pub struct SolanaEventParser {
     /// Legacy multi-parser for actual parsing logic
     legacy_parser: EventParserRegistry,
@@ -288,6 +289,7 @@ impl EventParser for SolanaEventParser {
 }
 
 /// Inner instruction parser that implements the riglr-events-core EventParser trait
+#[derive(Debug)]
 pub struct SolanaInnerInstructionParser {
     /// Inner Solana parser
     solana_parser: Arc<SolanaEventParser>,
@@ -977,6 +979,15 @@ mod tests {
         let debug_str = format!("{:?}", inner_input);
         assert!(debug_str.contains("SolanaInnerInstructionInput"));
         assert!(debug_str.contains("inner-0"));
+
+        // Test the parser structs themselves now have Debug implementations
+        let parser = SolanaEventParser::default();
+        let parser_debug = format!("{:?}", parser);
+        assert!(parser_debug.contains("SolanaEventParser"));
+
+        let inner_parser = SolanaInnerInstructionParser::new(Arc::new(parser));
+        let inner_parser_debug = format!("{:?}", inner_parser);
+        assert!(inner_parser_debug.contains("SolanaInnerInstructionParser"));
     }
 
     #[tokio::test]

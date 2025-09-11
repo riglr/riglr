@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::debug;
 
 /// Router for selecting agents based on routing strategies.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Router {
     strategy: RoutingStrategy,
     round_robin_counter: AtomicUsize,

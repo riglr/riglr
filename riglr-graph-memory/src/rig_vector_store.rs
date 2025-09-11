@@ -169,6 +169,7 @@ impl Neo4jQueryResponse {
 ///
 /// This implementation leverages Neo4j's vector capabilities combined with graph traversal
 /// to provide enhanced contextual search for rig agents.
+#[derive(Debug)]
 pub struct GraphVectorStore {
     client: Arc<Neo4jClient>,
     index_name: String,

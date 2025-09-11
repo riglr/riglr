@@ -218,9 +218,9 @@ impl RedisAgentRegistry {
                         );
 
                         // Remove agent from all sets and hashes
-                        if let Err(e) =
-                            Self::remove_agent_from_redis_internal(&mut conn, &agent_id_str).await
-                        {
+                        let remove_result =
+                            Self::remove_agent_from_redis_internal(&mut conn, &agent_id_str).await;
+                        if let Err(e) = remove_result {
                             error!("Failed to remove stale agent {}: {}", agent_id_str, e);
                         }
                     }
@@ -270,8 +270,8 @@ impl RedisAgentRegistry {
         }
 
         // Delete capabilities set
-        conn.del::<_, ()>(&capabilities_key)
-            .await
+        let del_result = conn.del::<_, ()>(&capabilities_key).await;
+        del_result
             .map_err(|e| AgentError::storage(format!("Failed to delete capabilities: {}", e)))?;
 
         Ok(())
@@ -280,7 +280,8 @@ impl RedisAgentRegistry {
     /// Remove an agent from all Redis data structures
     async fn remove_agent_from_redis(&self, agent_id: &AgentId) -> Result<()> {
         let mut conn = self.connection.write().await;
-        Self::remove_agent_from_redis_internal(&mut conn, agent_id.as_str()).await
+        let result = Self::remove_agent_from_redis_internal(&mut conn, agent_id.as_str()).await;
+        result
     }
 }
 
@@ -499,8 +500,8 @@ impl AgentRegistry for RedisAgentRegistry {
             .map_err(|e| AgentError::storage(format!("Failed to serialize status: {}", e)))?;
 
         // Set with TTL to auto-expire stale statuses
-        conn.set_ex::<_, _, ()>(&status_key, status_json, 600) // 10 minute TTL
-            .await
+        let set_result = conn.set_ex::<_, _, ()>(&status_key, status_json, 600).await; // 10 minute TTL
+        set_result
             .map_err(|e| AgentError::storage(format!("Failed to update agent status: {}", e)))?;
 
         Ok(())
@@ -546,8 +547,8 @@ impl AgentRegistry for RedisAgentRegistry {
         let mut conn = self.connection.write().await;
 
         // Simple Redis PING to check connectivity
-        let pong: String = conn
-            .ping()
+        let pong: String = redis::cmd("PING")
+            .query_async(&mut *conn)
             .await
             .map_err(|e| AgentError::storage(format!("Health check failed: {}", e)))?;
 

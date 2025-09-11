@@ -62,6 +62,18 @@ pub struct EvmWebSocketStream {
     name: String,
 }
 
+impl std::fmt::Debug for EvmWebSocketStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EvmWebSocketStream")
+            .field("config", &self.config)
+            .field("event_tx", &"<BroadcastSender>")
+            .field("running", &self.running)
+            .field("health", &self.health)
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// EVM stream configuration
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct EvmStreamConfig {
@@ -275,8 +287,13 @@ impl EvmWebSocketStream {
             // Spawn a task to bridge mpsc to broadcast
             let event_tx_clone = event_tx_broadcast.clone();
             tokio::spawn(async move {
-                while let Some(event) = mpsc_rx.recv().await {
-                    let _ = event_tx_clone.send(event);
+                loop {
+                    let recv_result = mpsc_rx.recv().await;
+                    if let Some(event) = recv_result {
+                        let _ = event_tx_clone.send(event);
+                    } else {
+                        break;
+                    }
                 }
             });
 
@@ -288,10 +305,11 @@ impl EvmWebSocketStream {
                 move || {
                     let url = url.clone();
                     Box::pin(async move {
-                        connect_async(&url)
-                            .await
+                        let connection_result = connect_async(&url).await;
+                        let mapped_result = connection_result
                             .map(|(ws, _)| ws)
-                            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+                            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>);
+                        mapped_result
                     })
                 },
                 |_write| {
@@ -308,7 +326,7 @@ impl EvmWebSocketStream {
             .with_metrics(metrics)
             .build();
 
-            connector.run().await;
+            let _run_result = connector.run().await;
         });
 
         Ok(())

@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
     {
         use alloy::providers::ProviderBuilder;
 
-        let evm_provider = ProviderBuilder::new().connect_http(evm_rpc_url.parse()?);
+        let evm_provider = ProviderBuilder::new().on_http(evm_rpc_url.parse()?);
         context.set_extension(Arc::new(evm_provider));
     }
 

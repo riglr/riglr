@@ -14,6 +14,7 @@ pub use rest::RestHandler;
 pub use websocket::WebSocketStreamer;
 
 /// Main API server
+#[derive(Debug)]
 pub struct ApiServer {
     /// Service context
     context: Arc<ServiceContext>,
@@ -59,20 +60,24 @@ impl ApiServer {
     /// Start the API server
     pub async fn start(&self) -> IndexerResult<()> {
         let addr = format!("{}:{}", self.config.http.bind, self.config.http.port);
-        let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|_e| {
+        let bind_result = tokio::net::TcpListener::bind(&addr).await;
+        let listener_result = bind_result.map_err(|_e| {
             IndexerError::Network(crate::error::NetworkError::HttpFailed {
                 status: 0,
                 url: addr.clone(),
             })
-        })?;
+        });
+        let listener = listener_result?;
 
         tracing::info!("API server listening on {}", addr);
 
         let app = self.create_router();
 
-        axum::serve(listener, app.with_state(self.context.clone()))
-            .await
-            .map_err(|e| IndexerError::internal_with_source("API server failed", e))?;
+        let serve_future = axum::serve(listener, app.with_state(self.context.clone()));
+        let serve_result = serve_future.await;
+        let final_result =
+            serve_result.map_err(|e| IndexerError::internal_with_source("API server failed", e));
+        final_result?;
 
         Ok(())
     }

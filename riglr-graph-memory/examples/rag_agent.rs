@@ -145,7 +145,8 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
             transaction_hash: format!("0x{:064x}", idx + 1),
         };
 
-        match memory.add_documents(vec![doc]).await {
+        let add_result = memory.add_documents(vec![doc]).await;
+        match add_result {
             Ok(doc_ids) => {
                 println!("  ✅ Added transaction {}: {:?}", idx + 1, doc_ids);
             }
@@ -161,7 +162,8 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
     );
 
     // Get statistics
-    match memory.get_stats().await {
+    let stats_result = memory.get_stats().await;
+    match stats_result {
         Ok(stats) => {
             println!("  Documents: {}", stats.document_count);
             println!("  Entities: {}", stats.entity_count);
@@ -189,7 +191,8 @@ async fn answer_wallet_questions(memory: &GraphMemory) -> anyhow::Result<()> {
     for (question, _query) in questions {
         println!("Q: {}", question);
 
-        match memory.search(&vec![0.1; 384], 5).await {
+        let search_result = memory.search(&vec![0.1; 384], 5).await;
+        match search_result {
             Ok(docs) => {
                 if docs.documents.is_empty() {
                     println!("A: No relevant information found.\n");
@@ -217,7 +220,8 @@ async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()
 
     println!("Analyzing wallet: {}", wallet_address);
 
-    match memory.search(&vec![0.1; 384], 10).await {
+    let search_result = memory.search(&vec![0.1; 384], 10).await;
+    match search_result {
         Ok(history) => {
             println!("  Transaction count: {}", history.documents.len());
 
@@ -301,7 +305,8 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
 
         // Retrieve relevant context from graph memory
         let query_embedding = vec![0.1; 384];
-        match memory.search(&query_embedding, 10).await {
+        let search_result = memory.search(&query_embedding, 10).await;
+        match search_result {
             Ok(search_results) => {
                 // Simulate RAG response generation
                 let response = generate_rag_response(query, &search_results.documents);
@@ -414,7 +419,8 @@ fn generate_rag_response(
 async fn display_graph_stats(memory: &GraphMemory) {
     println!("\n📊 Graph Statistics:");
 
-    match memory.get_stats().await {
+    let stats_result = memory.get_stats().await;
+    match stats_result {
         Ok(stats) => {
             println!("  Total documents: {}", stats.document_count);
             println!("  Total entities: {}", stats.entity_count);

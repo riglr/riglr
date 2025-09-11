@@ -45,6 +45,18 @@ pub struct EventProcessor {
     batch_processor: Arc<BatchProcessor<Box<dyn Event>>>,
 }
 
+impl std::fmt::Debug for EventProcessor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventProcessor")
+            .field("config", &self.config)
+            .field("worker_permits", &self.worker_semaphore.available_permits())
+            .field("stats", &"<ProcessorStats>")
+            .field("active_workers", &"<usize>")
+            .field("batch_processor", &"<BatchProcessor>")
+            .finish()
+    }
+}
+
 /// Internal processor statistics
 #[derive(Debug, Clone, Default)]
 pub struct ProcessorStats {
@@ -158,10 +170,8 @@ impl EventProcessor {
         let start_time = Instant::now();
 
         // Acquire worker permit
-        let _permit = self
-            .worker_semaphore
-            .acquire()
-            .await
+        let acquire_result = self.worker_semaphore.acquire().await;
+        let _permit = acquire_result
             .map_err(|_| IndexerError::internal("Failed to acquire worker permit"))?;
 
         // Increment active workers
@@ -219,7 +229,8 @@ impl EventProcessor {
         loop {
             attempts += 1;
 
-            match self.store_event(&*event).await {
+            let store_result = self.store_event(&*event).await;
+            match store_result {
                 Ok(_) => {
                     if attempts > 1 {
                         info!("Event processed successfully after {} attempts", attempts);
@@ -289,19 +300,20 @@ impl EventProcessor {
         };
 
         // Store in primary storage
-        self.context.store.insert_event(&storage_event).await?;
+        let insert_result = self.context.store.insert_event(&storage_event).await;
+        insert_result?;
 
         // If caching is enabled, also cache the event
         if matches!(
             self.context.config.storage.cache.backend,
             crate::config::CacheBackend::Redis
         ) {
-            if let Err(e) = self
+            let cache_result = self
                 .context
                 .store
                 .cache_event(event.id(), &storage_event, Some(Duration::from_secs(3600)))
-                .await
-            {
+                .await;
+            if let Err(e) = cache_result {
                 warn!("Failed to cache event {}: {}", event.id(), e);
                 // Don't fail the entire operation for cache failures
             }
@@ -368,9 +380,10 @@ impl ServiceLifecycle for EventProcessor {
 
         while *self.active_workers.read().await > 0 {
             if start_time.elapsed() > timeout_duration {
+                let active_count = *self.active_workers.read().await;
                 warn!(
                     "Timeout waiting for workers to complete, {} workers still active",
-                    *self.active_workers.read().await
+                    active_count
                 );
                 break;
             }
@@ -456,7 +469,8 @@ impl EventProcessing for EventProcessor {
         let mut error_count = 0;
 
         for (index, task) in tasks.into_iter().enumerate() {
-            match task.await {
+            let task_result = task.await;
+            match task_result {
                 Ok(Ok(_)) => {
                     success_count += 1;
                 }
@@ -520,6 +534,14 @@ pub struct ProcessingPipeline {
     stages: Vec<Box<dyn PipelineStage + Send + Sync>>,
 }
 
+impl std::fmt::Debug for ProcessingPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProcessingPipeline")
+            .field("stages", &format!("{} stages", self.stages.len()))
+            .finish()
+    }
+}
+
 impl ProcessingPipeline {
     /// Create a new processing pipeline
     pub fn new() -> Self {
@@ -535,7 +557,8 @@ impl ProcessingPipeline {
     /// Process an event through all stages
     pub async fn process(&self, mut event: Box<dyn Event>) -> IndexerResult<Box<dyn Event>> {
         for (index, stage) in self.stages.iter().enumerate() {
-            match stage.process(event).await {
+            let process_result = stage.process(event).await;
+            match process_result {
                 Ok(processed_event) => {
                     event = processed_event;
                 }

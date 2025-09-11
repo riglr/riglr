@@ -75,6 +75,7 @@ pub enum RoutingStrategy {
 /// incoming tasks based on agent capabilities, load, and routing rules.
 /// It preserves the SignerContext security model by ensuring each task
 /// execution maintains its own signer context.
+#[derive(Debug)]
 pub struct AgentDispatcher<R: AgentRegistry> {
     /// Agent registry
     registry: Arc<R>,
@@ -149,7 +150,8 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
                 tokio::time::sleep(self.config.retry_delay).await;
             }
 
-            match self.try_dispatch_task(&task).await {
+            let dispatch_result = self.try_dispatch_task(&task).await;
+            match dispatch_result {
                 Ok(result) => {
                     debug!("Task {} completed successfully", task.id);
                     return Ok(result);
@@ -263,7 +265,8 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         task: &Task,
     ) -> Result<TaskResult> {
         // Check if we have a distributed queue for remote execution
-        if let Some(queue) = &self.distributed_queue {
+        let queue_ref = &self.distributed_queue;
+        if let Some(queue) = queue_ref {
             // Determine task timeout
             let task_timeout = task.timeout.unwrap_or(self.config.default_task_timeout);
 
@@ -273,9 +276,10 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
                 task.id, status.agent_id
             );
 
-            queue
+            let dispatch_result = queue
                 .dispatch_remote_task(&status.agent_id, task.clone(), task_timeout)
-                .await
+                .await;
+            dispatch_result
         } else {
             // No distributed queue available, return an error
             warn!(
@@ -306,7 +310,8 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         // For each status, check if we have a local instance
         for status in agent_statuses {
             // Try to get local agent instance
-            if let Ok(Some(local_agent)) = self.registry.get_agent(&status.agent_id).await {
+            let local_agent_result = self.registry.get_agent(&status.agent_id).await;
+            if let Ok(Some(local_agent)) = local_agent_result {
                 // We have a local instance
                 suitable_proxies.push(AgentProxy::Local(local_agent));
             } else {

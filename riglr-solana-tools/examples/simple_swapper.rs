@@ -16,7 +16,7 @@ use riglr_core::{
 };
 use riglr_solana_tools::{
     clients::ApiClients,
-    swap::{get_jupiter_quote_tool, get_token_price_tool, perform_jupiter_swap_tool},
+    swap::{GetJupiterQuoteTool, GetTokenPriceTool, PerformJupiterSwapTool},
     LocalSolanaSigner,
 };
 use serde_json::json;
@@ -52,13 +52,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     app_context.set_extension(Arc::new(api_clients));
 
     // Create ToolWorker with default configuration
-    let worker =
-        ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default(), app_context);
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+        ExecutionConfig::default(),
+        app_context.clone(),
+    );
 
-    // Register tools using factory functions
-    worker.register_tool(get_token_price_tool()).await;
-    worker.register_tool(get_jupiter_quote_tool()).await;
-    worker.register_tool(perform_jupiter_swap_tool()).await;
+    // Register tools using generated tool structs
+    worker
+        .register_tool(Arc::new(GetTokenPriceTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(GetJupiterQuoteTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
+    worker
+        .register_tool(Arc::new(PerformJupiterSwapTool {
+            context: Arc::new(app_context.clone()),
+        }))
+        .await;
 
     // Token mints
     let sol_mint = "So11111111111111111111111111111111111111112"; // Wrapped SOL

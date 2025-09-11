@@ -127,6 +127,17 @@ pub struct EventEnricher {
     http_client: reqwest::Client,
 }
 
+impl std::fmt::Debug for EventEnricher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventEnricher")
+            .field("config", &self.config)
+            .field("token_cache", &self.token_cache)
+            .field("price_cache", &self.price_cache)
+            .field("http_client", &"<reqwest::Client>")
+            .finish()
+    }
+}
+
 impl EventEnricher {
     /// Create a new event enricher
     pub fn new(config: EnrichmentConfig) -> Self {
@@ -201,7 +212,8 @@ impl EventEnricher {
 
         let mut enriched_events = Vec::new();
         for task in tasks {
-            match task.await {
+            let task_result = task.await;
+            match task_result {
                 Ok(Ok(event)) => enriched_events.push(event),
                 Ok(Err(e)) => return Err(e),
                 Err(e) => return Err(EnrichmentError::TaskError(e.to_string())),
@@ -212,7 +224,7 @@ impl EventEnricher {
     }
 
     /// Extract token addresses from an event
-    fn extract_token_addresses(&self, event: &ZeroCopyEvent) -> Vec<Pubkey> {
+    fn extract_token_addresses(&self, event: &ZeroCopyEvent<'_>) -> Vec<Pubkey> {
         let mut addresses = Vec::new();
 
         // Look for token addresses in the JSON data

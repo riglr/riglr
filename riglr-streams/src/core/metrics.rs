@@ -148,6 +148,7 @@ impl Default for GlobalMetrics {
 }
 
 /// Metrics collector for the streaming system
+#[derive(Debug)]
 pub struct MetricsCollector {
     /// Stream metrics
     stream_metrics: Arc<DashMap<String, StreamMetrics>>,
@@ -552,6 +553,7 @@ impl Default for MetricsCollector {
 }
 
 /// Metrics timer for measuring execution time
+#[derive(Debug)]
 pub struct MetricsTimer {
     start: Instant,
     name: String,
