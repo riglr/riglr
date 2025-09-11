@@ -14,11 +14,10 @@ workspace = true
 
 [dependencies]
 # Core dependencies
-riglr-core = { path = "../riglr-core" }
-riglr-config = { path = "../riglr-config" }
-riglr-web-adapters = { path = "../riglr-web-adapters" }
-riglr-solana-tools = { path = "../riglr-solana-tools", optional = true }
-riglr-evm-tools = { path = "../riglr-evm-tools", optional = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-solana-tools = { workspace = true, optional = true  }
+riglr-evm-tools = { workspace = true, optional = true  }
 
 # Async runtime
 async-trait = "0.1"

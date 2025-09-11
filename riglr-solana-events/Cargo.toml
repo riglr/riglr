@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 # Core riglr dependencies
-riglr-events-core = { path = "../riglr-events-core", features = ["solana"] }
+riglr-events-core = { workspace = true, features = ["solana"]  }
 
 # Legacy dependencies (gradually remove these)
 anyhow = { workspace = true }

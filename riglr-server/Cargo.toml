@@ -18,10 +18,10 @@ workspace = true
 
 [dependencies]
 # riglr ecosystem
-riglr-config = { path = "../riglr-config" }
-riglr-core = { path = "../riglr-core" }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
-riglr-web-adapters = { path = "../riglr-web-adapters" }
+riglr-config = { workspace = true  }
+riglr-core = { workspace = true  }
+riglr-solana-tools = { workspace = true  }
+riglr-web-adapters = { workspace = true  }
 rig-core = { workspace = true }
 
 # web frameworks

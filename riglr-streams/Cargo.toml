@@ -17,11 +17,11 @@ metrics-facade = ["metrics"]
 workspace = true
 
 [dependencies]
-riglr-core = { path = "../riglr-core" }
-riglr-events-core = { path = "../riglr-events-core" }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
-riglr-solana-events = { path = "../riglr-solana-events" }
-riglr-evm-tools = { path = "../riglr-evm-tools" }
+riglr-core = { workspace = true  }
+riglr-events-core = { workspace = true  }
+riglr-solana-tools = { workspace = true  }
+riglr-solana-events = { workspace = true  }
+riglr-evm-tools = { workspace = true  }
 
 # Solana SDK
 solana-sdk = { workspace = true }

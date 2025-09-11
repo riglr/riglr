@@ -49,4 +49,4 @@ rig = []
 [dev-dependencies]
 tokio-test = { workspace = true }
 tracing-subscriber = { workspace = true }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
+riglr-solana-tools = { workspace = true  }

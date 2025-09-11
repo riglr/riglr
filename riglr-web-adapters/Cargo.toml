@@ -13,10 +13,11 @@ workspace = true
 
 [dependencies]
 # Core dependencies
-riglr-core = { path = "../riglr-core" }
-riglr-config = { path = "../riglr-config" }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
- rig-core = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-auth = { workspace = true  }
+riglr-solana-tools = { workspace = true, optional = true  }
+rig-core = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
@@ -46,9 +47,10 @@ chrono = { workspace = true }
 solana-sdk = { workspace = true }
 
 [features]
-default = ["actix"]
+default = ["actix", "solana-tools"]
 actix = ["dep:actix-web", "dep:actix-web-lab"]
 axum = ["dep:axum", "dep:tower", "dep:hyper"]
+solana-tools = ["dep:riglr-solana-tools"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }

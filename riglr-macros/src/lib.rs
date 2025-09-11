@@ -768,19 +768,24 @@ pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Try to parse as function first, then as struct
-    if let Ok(function) = syn::parse::<ItemFn>(input.clone()) {
+    // Extract parsed values to separate variables to avoid Rust 2024 drop order issues
+    let function_parse_result = syn::parse::<ItemFn>(input.clone());
+    if let Ok(function) = function_parse_result {
         handle_function(function, tool_attrs).into()
-    } else if let Ok(structure) = syn::parse::<ItemStruct>(input) {
-        handle_struct(structure, tool_attrs).into()
     } else {
-        syn::Error::new_spanned(
-            proc_macro2::TokenStream::from(item),
-            "#[tool] can only be applied to async functions or structs.\n\
-            For functions: Must be async and return Result<T, E> where E: Into<ToolError>\n\
-            For structs: Must implement Clone, Serialize, Deserialize, JsonSchema and have an async execute(&self) method",
-        )
-        .to_compile_error()
-        .into()
+        let struct_parse_result = syn::parse::<ItemStruct>(input);
+        if let Ok(structure) = struct_parse_result {
+            handle_struct(structure, tool_attrs).into()
+        } else {
+            syn::Error::new_spanned(
+                proc_macro2::TokenStream::from(item),
+                "#[tool] can only be applied to async functions or structs.\n\
+                For functions: Must be async and return Result<T, E> where E: Into<ToolError>\n\
+                For structs: Must implement Clone, Serialize, Deserialize, JsonSchema and have an async execute(&self) method",
+            )
+            .to_compile_error()
+            .into()
+        }
     }
 }
 
@@ -790,7 +795,7 @@ struct ToolAttr {
 }
 
 impl Parse for ToolAttr {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         if input.is_empty() {
             return Ok(Self::default());
         }

@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/riglr/riglr"
 homepage = "https://github.com/riglr/riglr"
 keywords = ["rig", "ai", "agent", "events", "blockchain"]
-categories = ["asynchronous", "web-programming::api-bindings", "cryptography::cryptocurrencies"]
+categories = ["asynchronous", "web-programming", "cryptography::cryptocurrencies"]
 documentation = "https://docs.rs/riglr-events-core"
 
 [lib]
@@ -20,7 +20,7 @@ workspace = true
 
 [dependencies]
 # Core riglr dependencies
-riglr-core = { path = "../riglr-core" }
+riglr-core = { workspace = true  }
 
 # Async and concurrency
 tokio = { workspace = true, features = ["full"] }

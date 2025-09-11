@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "A suite of rig-compatible tools for interacting with Hyperliquid perpetual futures"
 readme = "README.md"
 keywords = ["hyperliquid", "derivatives", "futures", "ai", "agent", "blockchain", "rig"]
-categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
+categories = ["cryptography::cryptocurrencies", "web-programming"]
 documentation = "https://docs.rs/riglr-hyperliquid-tools"
 
 [lints]
@@ -18,9 +18,9 @@ workspace = true
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
-riglr-core = { workspace = true }
-riglr-config = { workspace = true }
-riglr-macros = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-macros = { workspace = true  }
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -67,4 +67,4 @@ mockito = "1.0"
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 alloy = { workspace = true }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
+riglr-solana-tools = { workspace = true  }

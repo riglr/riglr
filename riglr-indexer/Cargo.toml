@@ -21,11 +21,10 @@ workspace = true
 
 [dependencies]
 # Core riglr dependencies
-riglr-core = { workspace = true }
-riglr-events-core = { workspace = true }
-riglr-solana-events = { workspace = true }
-riglr-streams = { workspace = true }
-riglr-showcase = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-events-core = { workspace = true  }
+riglr-solana-events = { workspace = true  }
+riglr-streams = { workspace = true  }
 
 # Async and concurrency
 tokio = { workspace = true, features = ["full", "parking_lot"] }

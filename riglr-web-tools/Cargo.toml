@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "Web-based data tools for riglr agents - Twitter, DexScreener, web search, and more"
 readme = "README.md"
 keywords = ["web", "api", "ai", "agent", "rig"]
-categories = ["web-programming::api-bindings"]
+categories = ["web-programming"]
 documentation = "https://docs.rs/riglr-web-tools"
 
 [lints]
@@ -18,9 +18,9 @@ workspace = true
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
-riglr-core = { workspace = true }
-riglr-config = { workspace = true }
-riglr-macros = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-macros = { workspace = true  }
 
 # Async and Error Handling
 tokio = { workspace = true }

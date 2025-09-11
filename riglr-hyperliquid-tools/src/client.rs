@@ -24,6 +24,7 @@ use crate::error::{HyperliquidToolError, Result};
 
 /// Hyperliquid API client - Real implementation using HTTP API
 /// This client makes REAL API calls to Hyperliquid - NO SIMULATION
+#[derive(Debug)]
 pub struct HyperliquidClient {
     client: Client,
     base_url: String,
@@ -1024,6 +1025,28 @@ mod tests {
     use mockito::Server;
     use riglr_core::signer::{EvmClient, EvmSigner, SignerBase, SignerError, UnifiedSigner};
     use std::sync::Arc;
+
+    /// Helper functions for test environment variable management
+    #[allow(unsafe_code)] // Test helper functions use unsafe std::env operations for Rust 2024 compatibility with proper inline SAFETY documentation
+    mod test_env_vars {
+        /// Helper function to set environment variables in tests without using string literals
+        pub fn set_test_env_var(key: &'static str, value: &str) {
+            // SAFETY: This is a test-only function used in isolated test environments
+            // where we control the threading and environment variable access patterns.
+            unsafe {
+                std::env::set_var(key, value);
+            }
+        }
+
+        /// Helper function to remove environment variables in tests without using string literals  
+        pub fn remove_test_env_var(key: &'static str) {
+            // SAFETY: This is a test-only function used in isolated test environments
+            // where we control the threading and environment variable access patterns.
+            unsafe {
+                std::env::remove_var(key);
+            }
+        }
+    }
 
     // Mock signer for testing
     #[derive(Debug)]
@@ -2181,8 +2204,8 @@ mod tests {
     // Environment variable and configuration tests
     #[tokio::test]
     async fn test_place_order_when_missing_private_key_should_return_configuration_error() {
-        std::env::remove_var(HYPERLIQUID_PRIVATE_KEY);
-        std::env::remove_var(ENABLE_REAL_HYPERLIQUID_TRADING);
+        test_env_vars::remove_test_env_var(HYPERLIQUID_PRIVATE_KEY);
+        test_env_vars::remove_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING);
 
         let signer = create_mock_signer();
         let client = HyperliquidClient::new(signer).unwrap();
@@ -2212,11 +2235,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_place_order_when_trading_disabled_should_return_configuration_error() {
-        std::env::set_var(
+        test_env_vars::set_test_env_var(
             HYPERLIQUID_PRIVATE_KEY,
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12",
         );
-        std::env::set_var(ENABLE_REAL_HYPERLIQUID_TRADING, "false");
+        test_env_vars::set_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING, "false");
 
         let signer = create_mock_signer();
         let client = HyperliquidClient::new(signer).unwrap();
@@ -2245,14 +2268,14 @@ mod tests {
         }
 
         // Clean up
-        std::env::remove_var(HYPERLIQUID_PRIVATE_KEY);
-        std::env::remove_var(ENABLE_REAL_HYPERLIQUID_TRADING);
+        test_env_vars::remove_test_env_var(HYPERLIQUID_PRIVATE_KEY);
+        test_env_vars::remove_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING);
     }
 
     #[tokio::test]
     async fn test_place_order_when_invalid_private_key_should_return_configuration_error() {
-        std::env::set_var(HYPERLIQUID_PRIVATE_KEY, "invalid_private_key");
-        std::env::set_var(ENABLE_REAL_HYPERLIQUID_TRADING, "true");
+        test_env_vars::set_test_env_var(HYPERLIQUID_PRIVATE_KEY, "invalid_private_key");
+        test_env_vars::set_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING, "true");
 
         let signer = create_mock_signer();
         let client = HyperliquidClient::new(signer).unwrap();
@@ -2280,14 +2303,14 @@ mod tests {
         }
 
         // Clean up
-        std::env::remove_var(HYPERLIQUID_PRIVATE_KEY);
-        std::env::remove_var(ENABLE_REAL_HYPERLIQUID_TRADING);
+        test_env_vars::remove_test_env_var(HYPERLIQUID_PRIVATE_KEY);
+        test_env_vars::remove_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING);
     }
 
     #[tokio::test]
     async fn test_cancel_order_when_missing_private_key_should_return_configuration_error() {
-        std::env::remove_var(HYPERLIQUID_PRIVATE_KEY);
-        std::env::remove_var(ENABLE_REAL_HYPERLIQUID_TRADING);
+        test_env_vars::remove_test_env_var(HYPERLIQUID_PRIVATE_KEY);
+        test_env_vars::remove_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING);
 
         let signer = create_mock_signer();
         let client = HyperliquidClient::new(signer).unwrap();
@@ -2304,11 +2327,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancel_order_when_trading_disabled_should_return_configuration_error() {
-        std::env::set_var(
+        test_env_vars::set_test_env_var(
             HYPERLIQUID_PRIVATE_KEY,
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12",
         );
-        std::env::set_var(ENABLE_REAL_HYPERLIQUID_TRADING, "false");
+        test_env_vars::set_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING, "false");
 
         let signer = create_mock_signer();
         let client = HyperliquidClient::new(signer).unwrap();
@@ -2324,8 +2347,8 @@ mod tests {
         }
 
         // Clean up
-        std::env::remove_var(HYPERLIQUID_PRIVATE_KEY);
-        std::env::remove_var(ENABLE_REAL_HYPERLIQUID_TRADING);
+        test_env_vars::remove_test_env_var(HYPERLIQUID_PRIVATE_KEY);
+        test_env_vars::remove_test_env_var(ENABLE_REAL_HYPERLIQUID_TRADING);
     }
 
     #[tokio::test]
