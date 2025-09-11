@@ -32,7 +32,7 @@ homepage = "https://github.com/riglr/riglr"
 
 [workspace.dependencies]
 # Core riglr and rig dependencies
-rig-core = "0.17.1"
+rig-core = "0.19.0"
 riglr-core = { path = "riglr-core" }
 riglr-config = { path = "riglr-config" }
 riglr-macros = { path = "riglr-macros" }
@@ -42,16 +42,12 @@ riglr-evm-common = { path = "riglr-evm-common" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
 riglr-web-adapters = { path = "riglr-web-adapters" }
-riglr-auth = { path = "riglr-auth" }
 riglr-events-core = { path = "riglr-events-core" }
 riglr-solana-events = { path = "riglr-solana-events" }
 riglr-streams = { path = "riglr-streams" }
-riglr-indexer = { path = "riglr-indexer" }
 riglr-agents = { path = "riglr-agents" }
 riglr-hyperliquid-tools = { path = "riglr-hyperliquid-tools" }
 riglr-cross-chain-tools = { path = "riglr-cross-chain-tools" }
-riglr-server = { path = "riglr-server" }
-riglr-showcase = { path = "riglr-showcase" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -84,9 +80,6 @@ reqwest = { version = "0.12", features = ["json"] }
 
 # Database and caching
 redis = { version = "0.27", features = ["tokio-comp", "json"] }
-
-# Testing
-mockito = "1.0"
 tokio-test = "0.4"
 criterion = "0.5"
 
@@ -107,43 +100,13 @@ tokio-util = { version = "0.7", features = ["io"] }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
-validator = "0.18"
-lazy_static = "1.5"
-hex = "0.4"
-bs58 = "0.5"
-borsh = { version = "1", features = ["derive"] }
-axum = "0.8"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "trace"] }
 hyper = "1.7"
-log = "0.4"
-env_logger = "0.11"
 clap = { version = "4", features = ["derive"] }
-colored = "2.1"
-indicatif = "0.17"
-dialoguer = "0.11"
-warp = "0.3"
-num-bigint = "0.4"
-num-traits = "0.2"
-bytemuck = "1.21"
-bincode = "1.3"
-dashmap = "6.1"
-regex = "1.11"
-semver = "1.0"
-walkdir = "2.5"
-ignore = "0.4"
-which = "8"
 trybuild = "1.0"
 config = "0.14"
 humantime-serde = "1.1"
 num_cpus = "1.16"
-jsonrpsee = { version = "0.24", features = ["server", "macros"] }
-testcontainers = "0.24"
-testcontainers-modules = { version = "0.12", features = ["redis"] }
-tempfile = "3.0"
-proptest = "1.0"
-mockall = "0.13"
-memmap2 = "0.9"
 tokio-stream = "0.1"
 
 [workspace.lints.rust]
