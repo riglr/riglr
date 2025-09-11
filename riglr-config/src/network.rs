@@ -26,7 +26,11 @@ const RIGLR_CHAINS_CONFIG: &str = "RIGLR_CHAINS_CONFIG";
 
 // Test environment variable constants
 #[cfg(test)]
-#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::undocumented_unsafe_blocks,
+    unsafe_code
+)] // Helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 pub mod test_env_vars {
     pub const RPC_URL_1: &str = "RPC_URL_1";
     pub const RPC_URL_137: &str = "RPC_URL_137";

@@ -200,7 +200,11 @@ pub mod test_urls {
 }
 
 #[cfg(test)]
-#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Test helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::undocumented_unsafe_blocks,
+    unsafe_code
+)] // Test helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
 

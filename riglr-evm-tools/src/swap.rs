@@ -1,8 +1,8 @@
 //! DEX integration tools for EVM chains
 
-use alloy::primitives::{Address, U256, U160, Bytes};
+use alloy::primitives::{Address, Bytes, U160, U256};
 use alloy::providers::Provider;
-use alloy::rpc::types::{TransactionRequest, BlockId};
+use alloy::rpc::types::{BlockId, TransactionRequest};
 use alloy::sol_types::SolCall;
 use riglr_core::{signer::SignerContext, ToolError};
 use riglr_macros::tool;

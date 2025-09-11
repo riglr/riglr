@@ -69,7 +69,9 @@ impl BlockhashCache {
             })
             .await;
             self.blockhash = spawn_result
-                .map_err(|e| SignerError::BlockhashError(format!("Failed to fetch blockhash: {}", e)))?
+                .map_err(|e| {
+                    SignerError::BlockhashError(format!("Failed to fetch blockhash: {}", e))
+                })?
                 .map_err(|e| {
                     SignerError::BlockhashError(format!("RPC error fetching blockhash: {}", e))
                 })?;
@@ -349,7 +351,9 @@ impl SolanaSigner for LocalSolanaSigner {
         })
         .await;
         let signature = spawn_result
-            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+            .map_err(|e| {
+                SignerError::TransactionFailed(format!("Failed to send transaction: {}", e))
+            })?
             .map_err(|e| SignerError::TransactionFailed(format!("RPC error: {}", e)))?;
 
         Ok(signature.to_string())
@@ -403,7 +407,9 @@ impl SolanaClient for SolanaClientImpl {
         })
         .await;
         let signature = spawn_result
-            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+            .map_err(|e| {
+                SignerError::TransactionFailed(format!("Failed to send transaction: {}", e))
+            })?
             .map_err(|e| {
                 SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e))
             })?;

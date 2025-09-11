@@ -419,7 +419,9 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
                 }
             }
         }
-        RpcError::ParseError(_msg) => TransactionErrorType::Permanent(PermanentError::InvalidTransaction),
+        RpcError::ParseError(_msg) => {
+            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        }
         RpcError::ForUser(msg) => TransactionErrorType::Unknown(msg.clone()),
     }
 }

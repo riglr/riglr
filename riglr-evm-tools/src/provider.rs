@@ -6,8 +6,8 @@
 use crate::error::EvmToolError;
 use alloy::primitives::Address;
 use alloy::providers::{ProviderBuilder, RootProvider};
-use alloy::transports::http::Http;
 use alloy::rpc::types::TransactionRequest;
+use alloy::transports::http::Http;
 use riglr_core::SignerContext;
 use riglr_evm_common::chain_id_to_rpc_url;
 use std::future::Future;

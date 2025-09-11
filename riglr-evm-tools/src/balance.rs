@@ -77,7 +77,7 @@ pub(crate) async fn get_eth_balance_with_context(
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to get balance: {}", e)))?;
 
-    // Get current block number  
+    // Get current block number
     let block_number_result = (**provider).get_block_number();
     let block_number = block_number_result
         .await
@@ -207,9 +207,10 @@ pub(crate) async fn get_erc20_balance_with_context(
     calldata.extend_from_slice(&param_bytes);
 
     // Make the eth_call
-    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
-        .to(token_addr)
-        .input(Bytes::from(calldata).into());
+    let tx_request =
+        <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
+            .to(token_addr)
+            .input(Bytes::from(calldata).into());
 
     let result_future = client.call(&tx_request);
     let result = result_future
@@ -280,8 +281,7 @@ pub async fn get_erc20_balance(
 pub async fn get_token_symbol(
     client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<String, EvmToolError>
-{
+) -> Result<String, EvmToolError> {
     debug!("Getting token symbol for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -295,9 +295,10 @@ pub async fn get_token_symbol(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
-        .to(token_address)
-        .input(Bytes::from(calldata).into());
+    let tx_request =
+        <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
+            .to(token_address)
+            .input(Bytes::from(calldata).into());
 
     let result_future = client.call(&tx_request);
     let result = result_future
@@ -323,8 +324,7 @@ pub async fn get_token_symbol(
 pub async fn get_token_name(
     client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<String, EvmToolError>
-{
+) -> Result<String, EvmToolError> {
     debug!("Getting token name for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -338,9 +338,10 @@ pub async fn get_token_name(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
-        .to(token_address)
-        .input(Bytes::from(calldata).into());
+    let tx_request =
+        <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
+            .to(token_address)
+            .input(Bytes::from(calldata).into());
 
     let result_future = client.call(&tx_request);
     let result = result_future
@@ -366,8 +367,7 @@ pub async fn get_token_name(
 pub async fn get_token_decimals(
     client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<u8, EvmToolError>
-{
+) -> Result<u8, EvmToolError> {
     debug!("Getting token decimals for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -381,9 +381,10 @@ pub async fn get_token_decimals(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
-        .to(token_address)
-        .input(Bytes::from(calldata).into());
+    let tx_request =
+        <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
+            .to(token_address)
+            .input(Bytes::from(calldata).into());
 
     let result_future = client.call(&tx_request);
     let result = result_future

@@ -113,11 +113,7 @@ pub async fn transfer_sol(
         .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
 
     // Create transfer instruction
-    let mut instructions = vec![system_transfer_v3(
-        &from_pubkey,
-        &to_pubkey,
-        lamports,
-    )];
+    let mut instructions = vec![system_transfer_v3(&from_pubkey, &to_pubkey, lamports)];
 
     // Add priority fee if specified
     if let Some(fee) = priority_fee {

@@ -159,7 +159,11 @@ pub fn init_env_from_file(path: &str) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
-#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Test functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::undocumented_unsafe_blocks,
+    unsafe_code
+)] // Test functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use std::env;
@@ -186,17 +190,23 @@ mod tests {
     #[test]
     fn test_get_env_or_default_with_existing_var() {
         // SAFETY: Setting test environment variables in test context is safe
-        unsafe { env::set_var(TEST_VAR_EXISTS, "test_value"); }
+        unsafe {
+            env::set_var(TEST_VAR_EXISTS, "test_value");
+        }
         let result = get_env_or_default(TEST_VAR_EXISTS, "default");
         assert_eq!(result, "test_value");
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_VAR_EXISTS); }
+        unsafe {
+            env::remove_var(TEST_VAR_EXISTS);
+        }
     }
 
     #[test]
     fn test_get_env_or_default_with_missing_var() {
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_VAR_MISSING); }
+        unsafe {
+            env::remove_var(TEST_VAR_MISSING);
+        }
         let result = get_env_or_default(TEST_VAR_MISSING, "default_value");
         assert_eq!(result, "default_value");
     }
@@ -204,17 +214,23 @@ mod tests {
     #[test]
     fn test_get_required_env_with_existing_var() {
         // SAFETY: Setting test environment variables in test context is safe
-        unsafe { env::set_var(TEST_REQUIRED_VAR, "required_value"); }
+        unsafe {
+            env::set_var(TEST_REQUIRED_VAR, "required_value");
+        }
         let result = get_required_env(TEST_REQUIRED_VAR).unwrap();
         assert_eq!(result, "required_value");
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_REQUIRED_VAR); }
+        unsafe {
+            env::remove_var(TEST_REQUIRED_VAR);
+        }
     }
 
     #[test]
     fn test_get_required_env_with_missing_var() {
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_MISSING_REQUIRED); }
+        unsafe {
+            env::remove_var(TEST_MISSING_REQUIRED);
+        }
         let result = get_required_env(TEST_MISSING_REQUIRED);
         assert!(result.is_err());
         match result {
@@ -256,7 +272,9 @@ mod tests {
         assert!(result.is_err());
 
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_VALIDATE_MISSING_VAR1); }
+        unsafe {
+            env::remove_var(TEST_VALIDATE_MISSING_VAR1);
+        }
     }
 
     #[test]
@@ -348,7 +366,9 @@ mod tests {
         // Clean up
         fs::remove_file(temp_file).ok();
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(DOCTEST_ENV_FILE_VAR); }
+        unsafe {
+            env::remove_var(DOCTEST_ENV_FILE_VAR);
+        }
     }
 
     #[test]
@@ -375,7 +395,9 @@ mod tests {
     #[test]
     fn test_get_env_or_default_with_empty_string_default() {
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_NONEXISTENT_VAR); }
+        unsafe {
+            env::remove_var(TEST_NONEXISTENT_VAR);
+        }
         let result = get_env_or_default(TEST_NONEXISTENT_VAR, "");
         assert_eq!(result, "");
     }
@@ -383,21 +405,29 @@ mod tests {
     #[test]
     fn test_get_env_or_default_with_empty_string_value() {
         // SAFETY: Setting test environment variables in test context is safe
-        unsafe { env::set_var(TEST_EMPTY_VALUE, ""); }
+        unsafe {
+            env::set_var(TEST_EMPTY_VALUE, "");
+        }
         let result = get_env_or_default(TEST_EMPTY_VALUE, "default");
         assert_eq!(result, "");
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_EMPTY_VALUE); }
+        unsafe {
+            env::remove_var(TEST_EMPTY_VALUE);
+        }
     }
 
     #[test]
     fn test_get_required_env_with_empty_string_value() {
         // SAFETY: Setting test environment variables in test context is safe
-        unsafe { env::set_var(TEST_EMPTY_REQUIRED, ""); }
+        unsafe {
+            env::set_var(TEST_EMPTY_REQUIRED, "");
+        }
         let result = get_required_env(TEST_EMPTY_REQUIRED).unwrap();
         assert_eq!(result, "");
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_EMPTY_REQUIRED); }
+        unsafe {
+            env::remove_var(TEST_EMPTY_REQUIRED);
+        }
     }
 
     #[test]
@@ -419,13 +449,17 @@ mod tests {
         }
 
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_SECOND_EXISTS); }
+        unsafe {
+            env::remove_var(TEST_SECOND_EXISTS);
+        }
     }
 
     #[test]
     fn test_get_env_vars_with_special_characters() {
         // SAFETY: Setting test environment variables in test context is safe
-        unsafe { env::set_var(TEST_SPECIAL_CHARS, "value with spaces & symbols!"); }
+        unsafe {
+            env::set_var(TEST_SPECIAL_CHARS, "value with spaces & symbols!");
+        }
 
         let vars = get_env_vars(&[TEST_SPECIAL_CHARS]);
         assert_eq!(
@@ -434,6 +468,8 @@ mod tests {
         );
 
         // SAFETY: Removing test environment variables in test context is safe
-        unsafe { env::remove_var(TEST_SPECIAL_CHARS); }
+        unsafe {
+            env::remove_var(TEST_SPECIAL_CHARS);
+        }
     }
 }

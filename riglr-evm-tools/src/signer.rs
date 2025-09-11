@@ -116,9 +116,12 @@ impl LocalEvmSigner {
 
     /// Create a provider with this wallet attached
     async fn get_provider(&self) -> Result<HttpProvider, SignerError> {
-        let url = self.config.rpc_url.parse()
+        let url = self
+            .config
+            .rpc_url
+            .parse()
             .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
-        
+
         let provider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
             .on_http(url);
@@ -242,13 +245,12 @@ impl LocalEvmSigner {
         })?;
 
         // Use eth_call to simulate the transaction
-        let _result =
-            provider
-                .call(tx)
-                .await
-                .map_err(|e| EvmToolError::TransactionReverted {
-                    reason: format!("Transaction simulation failed: {}", e),
-                })?;
+        let _result = provider
+            .call(tx)
+            .await
+            .map_err(|e| EvmToolError::TransactionReverted {
+                reason: format!("Transaction simulation failed: {}", e),
+            })?;
 
         info!("Transaction simulation successful");
         Ok(())
@@ -367,9 +369,11 @@ struct EvmClientImpl {
 #[async_trait]
 impl EvmClient for EvmClientImpl {
     async fn get_balance(&self, address: &str) -> Result<String, SignerError> {
-        let url = self.provider_url.parse()
+        let url = self
+            .provider_url
+            .parse()
             .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
-        
+
         let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
             .on_http(url);
@@ -390,10 +394,12 @@ impl EvmClient for EvmClientImpl {
         // Convert JSON to TransactionRequest
         let tx: TransactionRequest = serde_json::from_value(tx_json.clone())
             .map_err(|e| SignerError::Signing(format!("Failed to parse transaction: {}", e)))?;
-        
-        let url = self.provider_url.parse()
+
+        let url = self
+            .provider_url
+            .parse()
             .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
-        
+
         let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
             .on_http(url);
@@ -414,10 +420,12 @@ impl EvmClient for EvmClientImpl {
         // Convert JSON to TransactionRequest
         let tx: TransactionRequest = serde_json::from_value(tx_json.clone())
             .map_err(|e| SignerError::Signing(format!("Failed to parse transaction: {}", e)))?;
-        
-        let url = self.provider_url.parse()
+
+        let url = self
+            .provider_url
+            .parse()
             .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
-        
+
         let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
             .on_http(url);

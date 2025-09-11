@@ -59,8 +59,8 @@ impl EnvironmentSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::network::test_env_vars::{remove_test_env_var, set_test_env_var};
     use std::collections::HashMap;
-    use crate::network::test_env_vars::{set_test_env_var, remove_test_env_var};
 
     // Constants for environment variable names used in tests
     const TEST_VAR_EXISTS: &str = "TEST_VAR_EXISTS";

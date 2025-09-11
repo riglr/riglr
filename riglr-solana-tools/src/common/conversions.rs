@@ -273,12 +273,5 @@ pub fn system_create_account_v3(
     space: u64,
     owner: &Pubkey,
 ) -> solana_sdk::instruction::Instruction {
-    solana_sdk::system_instruction::create_account(
-        from_pubkey,
-        to_pubkey,
-        lamports,
-        space,
-        owner,
-    )
+    solana_sdk::system_instruction::create_account(from_pubkey, to_pubkey, lamports, space, owner)
 }
-

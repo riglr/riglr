@@ -3,9 +3,9 @@
 use crate::error::EvmToolError;
 use crate::provider::EvmProvider;
 use alloy::dyn_abi::{DynSolType, DynSolValue, JsonAbiExt};
-use alloy::providers::Provider;
 use alloy::json_abi::Function;
 use alloy::primitives::{self, Address, Bytes, I256, U256};
+use alloy::providers::Provider;
 use alloy::rpc::types::TransactionRequest;
 use riglr_macros::tool;
 use std::str::FromStr;
@@ -70,11 +70,9 @@ pub async fn call_contract_read(
     );
 
     // Get provider from ApplicationContext
-    let provider = context
-        .get_extension::<EvmProvider>()
-        .ok_or_else(|| {
-            riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
-        })?;
+    let provider = context.get_extension::<EvmProvider>().ok_or_else(|| {
+        riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
+    })?;
     let client = &**provider;
 
     // Validate contract address
@@ -306,11 +304,9 @@ pub async fn read_erc20_info(
     context: &riglr_core::provider::ApplicationContext,
 ) -> std::result::Result<serde_json::Value, riglr_core::ToolError> {
     // Get provider from ApplicationContext
-    let provider = context
-        .get_extension::<EvmProvider>()
-        .ok_or_else(|| {
-            riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
-        })?;
+    let provider = context.get_extension::<EvmProvider>().ok_or_else(|| {
+        riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
+    })?;
     let client = &**provider;
 
     let token_addr = token_address

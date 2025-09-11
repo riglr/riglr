@@ -208,7 +208,7 @@ pub async fn get_spl_token_balance(
     let balance_result = rpc_client
         .get_token_account_balance(&ata)
         .map_err(|e| ToolError::permanent_string(format!("Failed to get token balance: {}", e)));
-    
+
     match balance_result {
         Ok(balance) => {
             let raw_amount = balance.amount.parse::<u64>().map_err(|e| {
