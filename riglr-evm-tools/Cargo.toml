@@ -11,10 +11,10 @@ categories = ["cryptography::cryptocurrencies", "api-bindings"]
 
 [dependencies]
 # Core dependencies
-riglr-config = { path = "../riglr-config" }
-riglr-core = { path = "../riglr-core" }
-riglr-evm-common = { path = "../riglr-evm-common" }
-riglr-macros = { path = "../riglr-macros" }
+riglr-config = { workspace = true  }
+riglr-core = { workspace = true  }
+riglr-evm-common = { workspace = true  }
+riglr-macros = { workspace = true  }
 
 # Async runtime
 tokio = { workspace = true }

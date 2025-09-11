@@ -4,9 +4,9 @@
 //! riglr-core and tool-specific error types.
 
 use crate::error::EvmToolError;
-use alloy::network::Ethereum;
 use alloy::primitives::Address;
-use alloy::providers::{Provider, ProviderBuilder};
+use alloy::providers::{ProviderBuilder, RootProvider};
+use alloy::transports::http::Http;
 use alloy::rpc::types::TransactionRequest;
 use riglr_core::SignerContext;
 use riglr_evm_common::chain_id_to_rpc_url;
@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 /// Type alias for an Arc-wrapped Ethereum provider
-pub type EvmProvider = Arc<dyn Provider<Ethereum>>;
+pub type EvmProvider = Arc<RootProvider<Http<reqwest::Client>>>;
 
 /// Factory function for creating EVM providers
 /// Centralizes provider creation and ensures consistent configuration
@@ -27,9 +27,9 @@ pub fn make_provider(chain_id: u64) -> Result<EvmProvider, EvmToolError> {
         .parse()
         .map_err(|e| EvmToolError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
 
-    let provider = ProviderBuilder::new().connect_http(url);
+    let provider = ProviderBuilder::new().on_http(url);
 
-    Ok(Arc::new(provider) as EvmProvider)
+    Ok(Arc::new(provider))
 }
 
 /// Higher-order function to execute EVM transactions

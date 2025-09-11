@@ -377,9 +377,28 @@ pub fn get_address_url(chain_id: u64, address: &str) -> EvmResult<String> {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test functions use unsafe std::env operations for Rust 2024 compatibility with proper safety documentation
 mod tests {
     use super::*;
     use std::env;
+
+    /// Helper function to set environment variables in tests without using string literals
+    fn set_test_env_var(key: &str, value: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::set_var(key, value);
+        }
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals
+    fn remove_test_env_var(key: &str) {
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            env::remove_var(key);
+        }
+    }
 
     #[test]
     fn test_chain_name_conversion() {
@@ -416,25 +435,25 @@ mod tests {
     #[test]
     fn test_rpc_url_resolution() {
         // Test with environment variable
-        env::set_var("RPC_URL_999", "https://test-rpc.example.com");
+        set_test_env_var("RPC_URL_999", "https://test-rpc.example.com");
         let result = chain_id_to_rpc_url(999);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "https://test-rpc.example.com");
-        env::remove_var("RPC_URL_999");
+        remove_test_env_var("RPC_URL_999");
 
         // Test with default (Ethereum should have default)
         // Clear any existing env var to test default behavior
-        env::remove_var("RPC_URL_1");
+        remove_test_env_var("RPC_URL_1");
         let result = chain_id_to_rpc_url(1);
         assert!(result.is_ok()); // Should use default RPC
     }
 
     #[test]
     fn test_invalid_rpc_url() {
-        env::set_var("RPC_URL_998", "invalid-url");
+        set_test_env_var("RPC_URL_998", "invalid-url");
         let result = chain_id_to_rpc_url(998);
         assert!(result.is_err());
-        env::remove_var("RPC_URL_998");
+        remove_test_env_var("RPC_URL_998");
     }
 
     #[test]
@@ -514,28 +533,28 @@ mod tests {
     #[test]
     fn test_chain_id_to_rpc_url_when_empty_env_var_should_return_err() {
         // Test empty environment variable
-        env::set_var("RPC_URL_997", "   ");
+        set_test_env_var("RPC_URL_997", "   ");
         let result = chain_id_to_rpc_url(997);
         assert!(result.is_err());
         if let Err(EvmCommonError::InvalidConfig(msg)) = result {
             assert!(msg.contains("RPC URL for chain 997 is empty"));
         }
-        env::remove_var("RPC_URL_997");
+        remove_test_env_var("RPC_URL_997");
     }
 
     #[test]
     fn test_chain_id_to_rpc_url_when_whitespace_only_should_return_err() {
         // Test whitespace-only environment variable
-        env::set_var("RPC_URL_996", "\t\n  \r");
+        set_test_env_var("RPC_URL_996", "\t\n  \r");
         let result = chain_id_to_rpc_url(996);
         assert!(result.is_err());
-        env::remove_var("RPC_URL_996");
+        remove_test_env_var("RPC_URL_996");
     }
 
     #[test]
     fn test_chain_id_to_rpc_url_when_unsupported_chain_no_default_should_return_err() {
         // Test completely unsupported chain (no env var, no default)
-        env::remove_var("RPC_URL_999999");
+        remove_test_env_var("RPC_URL_999999");
         let result = chain_id_to_rpc_url(999999);
         assert!(result.is_err());
         if let Err(EvmCommonError::UnsupportedChain(chain_id)) = result {
@@ -672,31 +691,31 @@ mod tests {
 
     #[test]
     fn test_is_supported_chain_when_env_var_configured() {
-        env::set_var("RPC_URL_995", "https://test.example.com");
+        set_test_env_var("RPC_URL_995", "https://test.example.com");
         assert!(is_supported_chain(995));
-        env::remove_var("RPC_URL_995");
+        remove_test_env_var("RPC_URL_995");
     }
 
     #[test]
     fn test_is_supported_chain_when_has_default() {
         // Ethereum should be supported due to default RPC
-        env::remove_var("RPC_URL_1");
+        remove_test_env_var("RPC_URL_1");
         assert!(is_supported_chain(1));
     }
 
     #[test]
     fn test_is_supported_chain_when_not_supported() {
-        env::remove_var("RPC_URL_999999");
+        remove_test_env_var("RPC_URL_999999");
         assert!(!is_supported_chain(999999));
     }
 
     #[test]
     fn test_get_supported_chains_includes_env_vars() {
         // Set a custom environment variable
-        env::set_var("RPC_URL_994", "https://test.example.com");
+        set_test_env_var("RPC_URL_994", "https://test.example.com");
         let chains = get_supported_chains();
         assert!(chains.contains(&994));
-        env::remove_var("RPC_URL_994");
+        remove_test_env_var("RPC_URL_994");
     }
 
     #[test]
@@ -724,14 +743,14 @@ mod tests {
     #[test]
     fn test_get_supported_chains_no_duplicates() {
         // Set env var for a chain that already has defaults
-        env::set_var("RPC_URL_1", "https://custom-eth.example.com");
+        set_test_env_var("RPC_URL_1", "https://custom-eth.example.com");
         let chains = get_supported_chains();
         let unique_count = chains.len();
         let mut deduped = chains.clone();
         deduped.sort();
         deduped.dedup();
         assert_eq!(unique_count, deduped.len());
-        env::remove_var("RPC_URL_1");
+        remove_test_env_var("RPC_URL_1");
     }
 
     #[test]

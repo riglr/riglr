@@ -2,15 +2,16 @@
 
 use alloy::hex;
 use alloy::primitives::Address;
+use alloy::providers::Provider;
 use riglr_core::{provider::ApplicationContext, signer::SignerContext, ToolError};
 use riglr_evm_common::get_chain_info;
 use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use std::sync::Arc;
 use tracing::{debug, info};
 
 use crate::error::EvmToolError;
+use crate::provider::EvmProvider;
 
 /// Balance response for ETH
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,18 +68,18 @@ pub(crate) async fn get_eth_balance_with_context(
 
     // Get Provider from the ApplicationContext's extensions
     let provider = app_context
-        .get_extension::<Arc<dyn alloy::providers::Provider>>()
+        .get_extension::<EvmProvider>()
         .ok_or_else(|| EvmToolError::ProviderError("Provider not found in context".to_string()))?;
 
     // Get balance from the blockchain
-    let balance = provider
-        .get_balance(addr)
+    let balance_result = (**provider).get_balance(addr);
+    let balance = balance_result
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to get balance: {}", e)))?;
 
-    // Get current block number
-    let block_number = provider
-        .get_block_number()
+    // Get current block number  
+    let block_number_result = (**provider).get_block_number();
+    let block_number = block_number_result
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to get block number: {}", e)))?;
 
@@ -178,7 +179,7 @@ pub(crate) async fn get_erc20_balance_with_context(
 
     // Get provider from ApplicationContext
     let provider = app_context
-        .get_extension::<Arc<dyn alloy::providers::Provider>>()
+        .get_extension::<EvmProvider>()
         .ok_or_else(|| EvmToolError::ProviderError("Provider not found in context".to_string()))?;
     let client = &**provider;
 
@@ -206,12 +207,12 @@ pub(crate) async fn get_erc20_balance_with_context(
     calldata.extend_from_slice(&param_bytes);
 
     // Make the eth_call
-    let tx_request = alloy::rpc::types::TransactionRequest::default()
+    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
         .to(token_addr)
         .input(Bytes::from(calldata).into());
 
-    let result = client
-        .call(tx_request)
+    let result_future = client.call(&tx_request);
+    let result = result_future
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to call balanceOf: {}", e)))?;
 
@@ -275,11 +276,12 @@ pub async fn get_erc20_balance(
         .map_err(Into::into)
 }
 
-/// Get token symbol from ERC20 contract
+/// Get token symbol from ERC20 contract  
 pub async fn get_token_symbol(
-    client: &dyn alloy::providers::Provider,
+    client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<String, EvmToolError> {
+) -> Result<String, EvmToolError>
+{
     debug!("Getting token symbol for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -293,12 +295,12 @@ pub async fn get_token_symbol(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = alloy::rpc::types::TransactionRequest::default()
+    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
         .to(token_address)
         .input(Bytes::from(calldata).into());
 
-    let result = client
-        .call(tx_request)
+    let result_future = client.call(&tx_request);
+    let result = result_future
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to call symbol: {}", e)))?;
 
@@ -319,9 +321,10 @@ pub async fn get_token_symbol(
 
 /// Get token name from ERC20 contract
 pub async fn get_token_name(
-    client: &dyn alloy::providers::Provider,
+    client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<String, EvmToolError> {
+) -> Result<String, EvmToolError>
+{
     debug!("Getting token name for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -335,12 +338,12 @@ pub async fn get_token_name(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = alloy::rpc::types::TransactionRequest::default()
+    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
         .to(token_address)
         .input(Bytes::from(calldata).into());
 
-    let result = client
-        .call(tx_request)
+    let result_future = client.call(&tx_request);
+    let result = result_future
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to call name: {}", e)))?;
 
@@ -361,9 +364,10 @@ pub async fn get_token_name(
 
 /// Get token decimals from ERC20 contract
 pub async fn get_token_decimals(
-    client: &dyn alloy::providers::Provider,
+    client: &alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     token_address: Address,
-) -> Result<u8, EvmToolError> {
+) -> Result<u8, EvmToolError>
+{
     debug!("Getting token decimals for: {:?}", token_address);
 
     use alloy::dyn_abi::{DynSolType, DynSolValue};
@@ -377,12 +381,12 @@ pub async fn get_token_decimals(
     let calldata = function_selector;
 
     // Make the eth_call
-    let tx_request = alloy::rpc::types::TransactionRequest::default()
+    let tx_request = <alloy::network::Ethereum as alloy::network::Network>::TransactionRequest::default()
         .to(token_address)
         .input(Bytes::from(calldata).into());
 
-    let result = client
-        .call(tx_request)
+    let result_future = client.call(&tx_request);
+    let result = result_future
         .await
         .map_err(|e| EvmToolError::ProviderError(format!("Failed to call decimals: {}", e)))?;
 

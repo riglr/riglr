@@ -20,6 +20,17 @@ use riglr_core::signer::{
 };
 use std::any::Any;
 
+/// Type alias for our HTTP provider with wallet
+type HttpProvider = alloy::providers::fillers::FillProvider<
+    alloy::providers::fillers::JoinFill<
+        alloy::providers::Identity,
+        alloy::providers::fillers::WalletFiller<EthereumWallet>,
+    >,
+    alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
+    alloy::transports::http::Http<reqwest::Client>,
+    alloy::network::Ethereum,
+>;
+
 /// EVM gas configuration
 #[derive(Debug, Clone)]
 pub struct GasConfig {
@@ -104,12 +115,13 @@ impl LocalEvmSigner {
     }
 
     /// Create a provider with this wallet attached
-    async fn get_provider(&self) -> Result<impl Provider, SignerError> {
+    async fn get_provider(&self) -> Result<HttpProvider, SignerError> {
+        let url = self.config.rpc_url.parse()
+            .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
+        
         let provider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
-            .connect(&self.config.rpc_url)
-            .await
-            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+            .on_http(url);
 
         Ok(provider)
     }
@@ -167,7 +179,7 @@ impl LocalEvmSigner {
         })?;
 
         let estimate = provider
-            .estimate_gas(tx.clone())
+            .estimate_gas(tx)
             .await
             .map_err(|_e| EvmToolError::GasEstimationFailed)?;
 
@@ -232,7 +244,7 @@ impl LocalEvmSigner {
         // Use eth_call to simulate the transaction
         let _result =
             provider
-                .call(tx.clone())
+                .call(tx)
                 .await
                 .map_err(|e| EvmToolError::TransactionReverted {
                     reason: format!("Transaction simulation failed: {}", e),
@@ -355,11 +367,12 @@ struct EvmClientImpl {
 #[async_trait]
 impl EvmClient for EvmClientImpl {
     async fn get_balance(&self, address: &str) -> Result<String, SignerError> {
-        let provider = ProviderBuilder::new()
+        let url = self.provider_url.parse()
+            .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
+        
+        let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
-            .connect(&self.provider_url)
-            .await
-            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+            .on_http(url);
 
         let address = address.parse::<Address>().map_err(|e| {
             SignerError::InvalidPrivateKey(format!("Invalid address format: {}", e))
@@ -377,11 +390,13 @@ impl EvmClient for EvmClientImpl {
         // Convert JSON to TransactionRequest
         let tx: TransactionRequest = serde_json::from_value(tx_json.clone())
             .map_err(|e| SignerError::Signing(format!("Failed to parse transaction: {}", e)))?;
-        let provider = ProviderBuilder::new()
+        
+        let url = self.provider_url.parse()
+            .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
+        
+        let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
-            .connect(&self.provider_url)
-            .await
-            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+            .on_http(url);
 
         let mut tx_request = tx.clone();
         if tx_request.chain_id.is_none() {
@@ -399,14 +414,16 @@ impl EvmClient for EvmClientImpl {
         // Convert JSON to TransactionRequest
         let tx: TransactionRequest = serde_json::from_value(tx_json.clone())
             .map_err(|e| SignerError::Signing(format!("Failed to parse transaction: {}", e)))?;
-        let provider = ProviderBuilder::new()
+        
+        let url = self.provider_url.parse()
+            .map_err(|e| SignerError::ProviderError(format!("Invalid RPC URL: {}", e)))?;
+        
+        let provider: HttpProvider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
-            .connect(&self.provider_url)
-            .await
-            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+            .on_http(url);
 
         let result = provider
-            .call(tx.clone())
+            .call(&tx)
             .await
             .map_err(|e| SignerError::ProviderError(format!("Failed to call contract: {}", e)))?;
 

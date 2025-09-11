@@ -12,7 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
 # Configuration for address validation trait
-riglr-config = { path = "../riglr-config" }
+riglr-config = { workspace = true  }
 
 # Ethereum/EVM
 alloy = { workspace = true }

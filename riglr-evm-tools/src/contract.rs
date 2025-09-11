@@ -1,7 +1,9 @@
 //! Generic smart contract interaction tools
 
 use crate::error::EvmToolError;
+use crate::provider::EvmProvider;
 use alloy::dyn_abi::{DynSolType, DynSolValue, JsonAbiExt};
+use alloy::providers::Provider;
 use alloy::json_abi::Function;
 use alloy::primitives::{self, Address, Bytes, I256, U256};
 use alloy::rpc::types::TransactionRequest;
@@ -69,7 +71,7 @@ pub async fn call_contract_read(
 
     // Get provider from ApplicationContext
     let provider = context
-        .get_extension::<std::sync::Arc<dyn alloy::providers::Provider>>()
+        .get_extension::<EvmProvider>()
         .ok_or_else(|| {
             riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
         })?;
@@ -93,8 +95,8 @@ pub async fn call_contract_read(
     // Execute call with retry logic using unified retry helper
     let result = riglr_core::retry::retry_async(
         || async {
-            client
-                .call(tx.clone())
+            let result_future = client.call(&tx);
+            result_future
                 .await
                 .map_err(|e| EvmToolError::ProviderError(format!("Contract call failed: {}", e)))
         },
@@ -305,7 +307,7 @@ pub async fn read_erc20_info(
 ) -> std::result::Result<serde_json::Value, riglr_core::ToolError> {
     // Get provider from ApplicationContext
     let provider = context
-        .get_extension::<std::sync::Arc<dyn alloy::providers::Provider>>()
+        .get_extension::<EvmProvider>()
         .ok_or_else(|| {
             riglr_core::ToolError::permanent_string("Provider not found in context".to_string())
         })?;
@@ -332,8 +334,9 @@ pub async fn read_erc20_info(
         let tx = TransactionRequest::default()
             .to(token_addr)
             .input(selector.into());
-        match client.call(tx).await {
-            Ok(bytes) => U256::try_from_be_slice(&bytes)
+        let result_future = client.call(&tx);
+        match result_future.await {
+            Ok(bytes) => U256::try_from_be_slice(bytes.as_ref())
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
             Err(_) => String::default(),

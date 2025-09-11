@@ -1,8 +1,13 @@
 //! DEX integration tools for EVM chains
 
+use alloy::primitives::{Address, U256, U160, Bytes};
+use alloy::providers::Provider;
+use alloy::rpc::types::{TransactionRequest, BlockId};
+use alloy::sol_types::SolCall;
 use riglr_core::{signer::SignerContext, ToolError};
 use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tracing::debug;
 
 // Type-safe contract bindings for Uniswap V3 Quoter
@@ -51,47 +56,44 @@ pub struct SwapQuote {
 
 /// Internal type-safe function to get Uniswap quote using generated bindings
 async fn get_uniswap_quote_typed(
-    token_in_addr: alloy::primitives::Address,
-    token_out_addr: alloy::primitives::Address,
-    amount_in_wei: alloy::primitives::U256,
+    token_in_addr: Address,
+    token_out_addr: Address,
+    amount_in_wei: U256,
     fee: u32,
     quoter_address: &str,
-    client: &dyn alloy::providers::Provider,
-) -> Result<(alloy::primitives::U256, alloy::primitives::U256), ToolError> {
-    use alloy::primitives::{Address, Bytes};
-    use std::str::FromStr;
-
+    client: &dyn Provider,
+) -> Result<(U256, U256), ToolError> {
     let quoter_addr = Address::from_str(quoter_address)
         .map_err(|e| ToolError::permanent_string(format!("Invalid quoter address: {}", e)))?;
 
     // Build the function call data using the generated types
     use alloy::primitives::aliases::U24;
-    use alloy::sol_types::SolCall;
 
     let call = IQuoterV2::quoteExactInputSingleCall {
         tokenIn: token_in_addr,
         tokenOut: token_out_addr,
         fee: U24::from(fee),
         amountIn: amount_in_wei,
-        sqrtPriceLimitX96: alloy::primitives::U160::ZERO,
+        sqrtPriceLimitX96: U160::ZERO,
     };
 
     // Encode the call data
     let encoded = call.abi_encode();
 
     // Make the eth_call using the client directly
-    let tx_request = alloy::rpc::types::TransactionRequest::default()
+    let tx_request = TransactionRequest::default()
         .to(quoter_addr)
         .input(Bytes::from(encoded).into());
 
     let result_bytes = client
-        .call(tx_request)
+        .call(&tx_request)
+        .block(BlockId::latest())
         .await
         .map_err(|e| ToolError::retriable_string(format!("Failed to get Uniswap quote: {}", e)))?;
 
     // Decode the result
     let decoded =
-        <IQuoterV2::quoteExactInputSingleCall as SolCall>::abi_decode_returns(&result_bytes)
+        <IQuoterV2::quoteExactInputSingleCall as SolCall>::abi_decode_returns(&result_bytes, true)
             .map_err(|e| {
                 ToolError::permanent_string(format!("Failed to decode quote result: {}", e))
             })?;
@@ -130,9 +132,6 @@ pub async fn get_uniswap_quote(
     chain_id: Option<u64>,
     context: &riglr_core::provider::ApplicationContext,
 ) -> Result<SwapQuote, ToolError> {
-    use alloy::primitives::{Address, U256};
-    use std::str::FromStr;
-
     // Parse token addresses
     let token_in_addr = Address::from_str(&token_in)
         .map_err(|e| ToolError::permanent_string(format!("Invalid token_in address: {}", e)))?;
@@ -145,7 +144,7 @@ pub async fn get_uniswap_quote(
 
     // Get provider from ApplicationContext
     let provider = context
-        .get_extension::<std::sync::Arc<dyn alloy::providers::Provider>>()
+        .get_extension::<std::sync::Arc<dyn Provider>>()
         .ok_or_else(|| ToolError::permanent_string("Provider not found in context".to_string()))?;
     let client = &**provider;
 
