@@ -73,7 +73,7 @@ solana-commitment-config = "2.0"
 solana-compute-budget-interface = "2.0"
 spl-token = "7.0"
 spl-associated-token-account = "6.0"
-alloy = { version = "0.9", features = ["dyn-abi", "json-abi", "rpc", "rpc-types", "providers", "network", "signers", "signer-local", "sol-types", "transport-http"] }
+alloy = { version = "0.15", features = ["dyn-abi", "json-abi", "rpc", "rpc-types", "providers", "network", "signers", "signer-local", "sol-types", "transport-http"] }
 
 # HTTP clients
 reqwest = { version = "0.12", features = ["json"] }
