@@ -23,7 +23,7 @@ workspace = true
 [dependencies]
 # CLI and user interaction
 clap = { version = "4", features = ["derive"] }
-dialoguer = "0.11"
+dialoguer = "0.12"
 indicatif = "0.17"
 console = "0.15"
 colored = "2"
