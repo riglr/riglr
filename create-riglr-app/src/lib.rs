@@ -8,12 +8,13 @@ pub mod generator;
 pub mod templates;
 pub mod validation;
 
-pub use config::{Chain, Feature, ProjectConfig, ServerFramework, Template, TemplateInfo};
-pub use generator::ProjectGenerator;
+pub use config::{Chain, Feature, Project, ServerFramework, Template, TemplateInfo};
+pub use generator::Generator;
 pub use templates::TemplateManager;
 pub use validation::{validate_email, validate_port, validate_project_name, validate_url};
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -30,8 +31,8 @@ mod tests {
         let template_info = TemplateInfo::from_template(&Template::Custom);
         assert_eq!(template_info.name, "custom");
 
-        // Test ProjectConfig can be created
-        let config = ProjectConfig {
+        // Test Project can be created
+        let config = Project {
             name: "test_project".to_string(),
             template: Template::Custom,
             chains: vec![Chain::Solana],
@@ -50,7 +51,7 @@ mod tests {
     #[test]
     fn test_generator_re_export_is_accessible() {
         // Test that ProjectGenerator can be created
-        let config = ProjectConfig {
+        let config = Project {
             name: "test_project".to_string(),
             template: Template::Custom,
             chains: vec![Chain::Solana],
@@ -64,7 +65,7 @@ mod tests {
             include_docs: false,
         };
 
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         // Just verify the generator was created successfully
         // We can't easily test the internal state without exposing it
         assert!(std::ptr::addr_of!(generator) as usize > 0);
@@ -73,13 +74,10 @@ mod tests {
     #[test]
     fn test_templates_re_export_is_accessible() {
         // Test that TemplateManager can be created
-        let manager = TemplateManager::default();
+        let _manager = TemplateManager::default();
 
         // Test that we can call methods on the re-exported type
-        let templates_result = manager.list_templates();
-        assert!(templates_result.is_ok());
-
-        let templates = templates_result.unwrap();
+        let templates = TemplateManager::list_templates();
         assert!(!templates.is_empty());
         assert!(templates.iter().any(|t| t.name == "custom"));
     }
@@ -141,16 +139,16 @@ mod tests {
 
     #[test]
     fn test_template_manager_get_template_info_functionality() {
-        let manager = TemplateManager::default();
+        let _manager = TemplateManager::default();
 
         // Test valid template name
-        let result = manager.get_template_info("custom");
+        let result = TemplateManager::get_template_info("custom");
         assert!(result.is_ok());
         let template_info = result.unwrap();
         assert_eq!(template_info.name, "custom");
 
         // Test invalid template name
-        let result = manager.get_template_info("invalid-template");
+        let result = TemplateManager::get_template_info("invalid-template");
         assert!(result.is_err());
     }
 
@@ -167,9 +165,7 @@ mod tests {
         ];
 
         for template in templates_to_test {
-            let result = manager.get_template_content(&template);
-            assert!(result.is_ok());
-            let content = result.unwrap();
+            let content = manager.get_template_content(&template);
             assert!(!content.main_rs.is_empty());
             assert!(!content.cargo_toml.is_empty());
             assert!(!content.env_example.is_empty());

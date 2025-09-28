@@ -1,6 +1,6 @@
 //! New command implementation
 
-use crate::config::{ProjectConfig, ServerFramework, Template};
+use crate::config::{Project, ServerFramework, Template};
 use crate::templates::TemplateManager;
 use anyhow::Result;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ pub async fn run(template: &str, name: &str, output: Option<PathBuf>) -> Result<
     let template_enum = Template::parse(template)?;
 
     // Create config with sensible defaults
-    let config = ProjectConfig {
+    let config = Project {
         name: name.to_string(),
         template: template_enum.clone(),
         chains: vec![],
@@ -23,7 +23,7 @@ pub async fn run(template: &str, name: &str, output: Option<PathBuf>) -> Result<
         features: template_enum.default_features(),
         author_name: whoami::realname(),
         author_email: format!("{}@example.com", whoami::username()),
-        description: format!("{} built with RIGLR", name),
+        description: format!("{name} built with RIGLR"),
         include_examples: true,
         include_tests: true,
         include_docs: false,

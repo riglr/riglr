@@ -4,9 +4,12 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
+use fs_extra::dir::{move_dir, CopyOptions};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::{env, fs};
+use core::time::Duration;
+use tempfile::TempDir;
 
 mod commands;
 mod config;
@@ -15,8 +18,8 @@ mod generator;
 mod templates;
 mod validation;
 
-use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
-use crate::generator::ProjectGenerator;
+use crate::config::{Chain, Feature, Project, ServerFramework, Template};
+use crate::generator::Generator;
 
 /// Create RIGLR App - Interactive scaffolding for blockchain AI agents
 #[derive(Parser, Debug)]
@@ -99,7 +102,7 @@ async fn main() -> Result<()> {
             commands::create_from_template(&template, &name, cli.output).await?;
         }
         Some(Commands::Update { url, branch }) => {
-            commands::update::run_with_options(url, branch).await?;
+            commands::update::run_with_options(url.as_deref(), branch.as_deref())?;
         }
         Some(Commands::Info { template }) => {
             commands::show_template_info(&template).await?;
@@ -107,7 +110,7 @@ async fn main() -> Result<()> {
         Option::None => {
             // Interactive mode
             let config = if cli.yes {
-                create_default_config(cli.project_name)?
+                create_default_config(cli.project_name)
             } else {
                 interactive_setup(cli.project_name)?
             };
@@ -149,15 +152,16 @@ fn print_banner() {
 // Helper functions for interactive setup
 /// Prompts the user for a project name or returns the provided name
 fn prompt_project_name(theme: &ColorfulTheme, project_name: Option<String>) -> Result<String> {
-    if let Some(name) = project_name {
-        Ok(name)
-    } else {
-        Input::<String>::with_theme(theme)
-            .with_prompt("Project name")
-            .validate_with(|input: &String| validation::validate_project_name(input))
-            .interact_text()
-            .map_err(Into::into)
-    }
+    project_name.map_or_else(
+        || {
+            Input::<String>::with_theme(theme)
+                .with_prompt("Project name")
+                .validate_with(|input: &String| validation::validate_project_name(input))
+                .interact_text()
+                .map_err(Into::into)
+        },
+        Ok,
+    )
 }
 
 /// Prompts the user to select a project template
@@ -322,7 +326,7 @@ fn prompt_author_info(theme: &ColorfulTheme) -> Result<(String, String)> {
 }
 
 /// Runs the interactive setup process to collect project configuration
-fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
+fn interactive_setup(project_name: Option<String>) -> Result<Project> {
     let theme = ColorfulTheme::default();
 
     println!(
@@ -347,8 +351,8 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         .default("AI-powered blockchain agent built with RIGLR".to_string())
         .interact_text()?;
 
-    Ok(ProjectConfig {
-        name: name.clone(),
+    Ok(Project {
+        name,
         template,
         chains,
         server_framework,
@@ -363,11 +367,11 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
 }
 
 /// Creates a default project configuration for non-interactive mode
-fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> {
+fn create_default_config(project_name: Option<String>) -> Project {
     let name = project_name.unwrap_or_else(|| "my-riglr-agent".to_string());
 
-    Ok(ProjectConfig {
-        name: name.clone(),
+    Project {
+        name,
         template: Template::ApiServiceBackend,
         chains: vec![Chain::Solana],
         server_framework: Some(ServerFramework::Actix),
@@ -378,13 +382,17 @@ fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> 
         include_examples: true,
         include_tests: true,
         include_docs: false,
-    })
+    }
 }
 
 /// Generates a new RIGLR project based on the provided configuration
-pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Result<()> {
-    use fs_extra::dir::{move_dir, CopyOptions};
-    use tempfile::TempDir;
+///
+/// # Errors
+///
+/// Returns an error if project generation, file creation, or directory operations fail
+#[allow(clippy::too_many_lines)]
+pub async fn generate_project(config: Project, output: Option<PathBuf>) -> Result<()> {
+    use tokio::time::sleep;
 
     println!();
     println!("{}", style("Generating your project...").cyan().bold());
@@ -403,8 +411,8 @@ pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) ->
         // In non-interactive mode (CI/tests), just remove the directory
         static CI: &str = "CI";
 
-        if std::env::var(CI).is_ok() || !atty::is(atty::Stream::Stdin) {
-            std::fs::remove_dir_all(&final_output_dir)?;
+        if env::var(CI).is_ok() || !atty::is(atty::Stream::Stdin) {
+            fs::remove_dir_all(&final_output_dir)?;
         } else {
             let overwrite = Confirm::new()
                 .with_prompt(format!(
@@ -419,7 +427,7 @@ pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) ->
                 return Ok(());
             }
 
-            std::fs::remove_dir_all(&final_output_dir)?;
+            fs::remove_dir_all(&final_output_dir)?;
         }
     }
 
@@ -433,24 +441,24 @@ pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) ->
     pb.set_message("Creating project structure...");
     pb.set_position(10);
 
-    let generator = ProjectGenerator::new(config.clone());
+    let generator = Generator::new(config.clone());
     generator.create_structure(temp_path)?;
 
     pb.set_message("Generating source files...");
     pb.set_position(30);
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    sleep(Duration::from_millis(200)).await;
 
     generator.generate_source_files(temp_path)?;
 
     pb.set_message("Setting up configuration...");
     pb.set_position(50);
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    sleep(Duration::from_millis(200)).await;
 
     generator.generate_config_files(temp_path)?;
 
     pb.set_message("Creating examples...");
     pb.set_position(70);
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    sleep(Duration::from_millis(200)).await;
 
     if config.include_examples {
         generator.generate_examples(temp_path)?;
@@ -458,7 +466,7 @@ pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) ->
 
     pb.set_message("Finalizing...");
     pb.set_position(90);
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    sleep(Duration::from_millis(200)).await;
 
     generator.generate_readme(temp_path)?;
 
@@ -519,6 +527,7 @@ pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) ->
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -568,10 +577,7 @@ mod tests {
     #[test]
     fn test_create_default_config_when_no_name_should_use_default() {
         // Happy path: No project name provided, should use default
-        let result = create_default_config(None);
-        assert!(result.is_ok());
-
-        let config = result.unwrap();
+        let config = create_default_config(None);
         assert_eq!(config.name, "my-riglr-agent");
         assert_eq!(config.template, Template::ApiServiceBackend);
         assert_eq!(config.chains, vec![Chain::Solana]);
@@ -588,10 +594,7 @@ mod tests {
     fn test_create_default_config_when_name_provided_should_use_name() {
         // Happy path: Project name provided
         let project_name = Some("custom-project".to_string());
-        let result = create_default_config(project_name);
-        assert!(result.is_ok());
-
-        let config = result.unwrap();
+        let config = create_default_config(project_name);
         assert_eq!(config.name, "custom-project");
         assert_eq!(config.template, Template::ApiServiceBackend);
         assert_eq!(config.chains, vec![Chain::Solana]);
@@ -610,10 +613,7 @@ mod tests {
     #[test]
     fn test_create_default_config_should_have_expected_features() {
         // Edge case: Verify all default features are correctly set
-        let result = create_default_config(None);
-        assert!(result.is_ok());
-
-        let config = result.unwrap();
+        let config = create_default_config(None);
         assert_eq!(config.features.len(), 3);
         assert!(config.features.contains(&Feature::WebTools));
         assert!(config.features.contains(&Feature::Redis));
@@ -623,10 +623,7 @@ mod tests {
     #[test]
     fn test_create_default_config_should_have_expected_booleans() {
         // Edge case: Verify boolean fields are correctly set
-        let result = create_default_config(Some("test".to_string()));
-        assert!(result.is_ok());
-
-        let config = result.unwrap();
+        let config = create_default_config(Some("test".to_string()));
         assert!(config.include_examples);
         assert!(config.include_tests);
         assert!(!config.include_docs);
@@ -718,7 +715,7 @@ mod tests {
             command: None,
         };
 
-        let debug_str = format!("{:?}", cli);
+        let debug_str = format!("{cli:?}");
         assert!(debug_str.contains("test"));
         assert!(debug_str.contains("api"));
         assert!(debug_str.contains("verbose: true"));
@@ -728,14 +725,14 @@ mod tests {
     fn test_commands_debug_derive() {
         // Test that Commands enum variants can be debug printed
         let list_cmd = Commands::List;
-        let debug_str = format!("{:?}", list_cmd);
+        let debug_str = format!("{list_cmd:?}");
         assert!(debug_str.contains("List"));
 
         let new_cmd = Commands::New {
             template: "api".to_string(),
             name: "test".to_string(),
         };
-        let debug_str = format!("{:?}", new_cmd);
+        let debug_str = format!("{new_cmd:?}");
         assert!(debug_str.contains("New"));
         assert!(debug_str.contains("api"));
         assert!(debug_str.contains("test"));
@@ -744,13 +741,13 @@ mod tests {
             url: None,
             branch: None,
         };
-        let debug_str = format!("{:?}", update_cmd);
+        let debug_str = format!("{update_cmd:?}");
         assert!(debug_str.contains("Update"));
 
         let info_cmd = Commands::Info {
             template: "api".to_string(),
         };
-        let debug_str = format!("{:?}", info_cmd);
+        let debug_str = format!("{info_cmd:?}");
         assert!(debug_str.contains("Info"));
         assert!(debug_str.contains("api"));
     }
@@ -830,7 +827,7 @@ mod tests {
     #[test]
     fn test_empty_string_handling() {
         // Edge case: Test empty string handling
-        let empty_name = Some("".to_string());
+        let empty_name = Some(String::new());
         let theme = ColorfulTheme::default();
 
         // This should return the empty string without validation in this context

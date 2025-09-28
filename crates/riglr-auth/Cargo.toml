@@ -1,0 +1,80 @@
+[package]
+name = "riglr-auth"
+version.workspace = true
+edition = "2021"
+description = "Authentication and signer factory implementations for RIGLR"
+authors = ["RIGLR Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/riglr"
+keywords = ["blockchain", "authentication", "web3", "privy", "magic"]
+categories = ["authentication", "cryptography", "web-programming"]
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-solana-tools = { workspace = true, optional = true  }
+riglr-evm-tools = { workspace = true, optional = true  }
+
+# Async runtime
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Authentication providers
+jsonwebtoken = { workspace = true, optional = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+
+# Blockchain support
+solana-sdk = { workspace = true, optional = true }
+solana-client = { workspace = true, optional = true }
+solana-system-interface = { workspace = true, optional = true }
+alloy = { workspace = true, optional = true }
+ethers = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+
+# Caching
+lru = { workspace = true, optional = true }
+dashmap = { workspace = true, optional = true }
+
+[dev-dependencies]
+mockito = "1"
+wiremock = "0.6"
+tokio-test = { workspace = true }
+proptest = "1"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+axum = "0.8.4"
+chrono = { workspace = true }
+
+[features]
+default = ["privy", "web3auth", "magic", "solana", "evm"]
+privy = ["dep:jsonwebtoken", "dep:lru"]
+web3auth = ["dep:jsonwebtoken", "dep:dashmap"]
+magic = ["dep:jsonwebtoken"]
+solana = ["dep:solana-sdk", "dep:solana-client", "dep:solana-system-interface", "dep:riglr-solana-tools", "dep:bincode"]
+evm = ["dep:alloy", "dep:ethers", "dep:riglr-evm-tools"]
+caching = ["dep:lru", "dep:dashmap"]
+
+[[example]]
+name = "privy_auth"
+required-features = ["privy"]
+
+[[example]]
+name = "multi_provider"

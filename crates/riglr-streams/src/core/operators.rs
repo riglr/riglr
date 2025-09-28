@@ -1,0 +1,704 @@
+//! Stream composition operators for building reactive pipelines
+//!
+//! This module provides a rich set of operators for composing, transforming,
+//! and combining streams in a declarative, functional style.
+//!
+//! ## Backpressure Behavior
+//!
+//! The operators in this module use `tokio::sync::broadcast` channels by default,
+//! which implement a **drop-oldest backpressure strategy**
+
+use async_trait::async_trait;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::time::Duration;
+use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::broadcast;
+use tokio::time::{interval, Interval};
+
+use super::streamed_event::DynamicStreamed;
+use crate::core::{Stream, StreamError, StreamHealth};
+
+/// Trait for composable streams
+#[async_trait]
+pub trait ComposableStream: Stream {
+    /// Batch events into groups
+    fn batch(self, size: usize, timeout: Duration) -> BatchedStream<Self>
+    where
+        Self: Sized,
+    {
+        BatchedStream::new(self, size, timeout)
+    }
+
+    /// Debounce events (only emit after quiet period)
+    fn debounce(self, duration: Duration) -> DebouncedStream<Self>
+    where
+        Self: Sized,
+    {
+        DebouncedStream::new(self, duration)
+    }
+
+    /// Filter events based on a predicate
+    fn filter<F>(self, predicate: F) -> FilteredStream<Self, F>
+    where
+        Self: Sized,
+        F: Fn(&DynamicStreamed) -> bool + Send + Sync + 'static,
+    {
+        FilteredStream::new(self, predicate)
+    }
+
+    /// Map events through a transformation function
+    fn map<F>(self, f: F) -> MappedStream<Self, F>
+    where
+        Self: Sized,
+        F: Fn(Arc<DynamicStreamed>) -> DynamicStreamed + Send + Sync + 'static,
+    {
+        MappedStream::new(self, f)
+    }
+
+    /// Merge with another stream
+    fn merge<S>(self, other: S) -> MergedStream<Self, S>
+    where
+        Self: Sized,
+        S: Stream,
+    {
+        MergedStream::new(self, other)
+    }
+
+    /// Skip the first N events
+    fn skip(self, count: usize) -> SkipStream<Self>
+    where
+        Self: Sized,
+    {
+        SkipStream::new(self, count)
+    }
+
+    /// Take only the first N events
+    fn take(self, count: usize) -> TakeStream<Self>
+    where
+        Self: Sized,
+    {
+        TakeStream::new(self, count)
+    }
+
+    /// Throttle events (rate limiting)
+    fn throttle(self, duration: Duration) -> ThrottledStream<Self>
+    where
+        Self: Sized,
+    {
+        ThrottledStream::new(self, duration)
+    }
+}
+
+/// Implement `ComposableStream` for all Stream types
+impl<T> ComposableStream for T where T: Stream {}
+
+/// Stream that maps events through a transformation
+#[derive(Debug)]
+pub struct MappedStream<S, F> {
+    inner: S,
+    transform: Arc<F>,
+}
+
+impl<S, F> MappedStream<S, F>
+where
+    S: Stream,
+    F: Fn(Arc<DynamicStreamed>) -> DynamicStreamed + Send + Sync + 'static,
+{
+    /// Creates a new mapped stream that applies a transformation function to each event
+    pub fn new(inner: S, transform: F) -> Self {
+        Self {
+            inner,
+            transform: Arc::new(transform),
+        }
+    }
+}
+
+#[async_trait]
+impl<S, F> Stream for MappedStream<S, F>
+where
+    S: Stream + Send + Sync + 'static,
+    F: Fn(Arc<DynamicStreamed>) -> DynamicStreamed + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let transform = self.transform.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let transformed = (transform)(event);
+                    let _ = tx.send(Arc::new(transformed));
+                } else {
+                    break;
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that filters events based on a predicate
+#[derive(Debug)]
+pub struct FilteredStream<S, F> {
+    inner: S,
+    predicate: Arc<F>,
+}
+
+impl<S, F> FilteredStream<S, F>
+where
+    S: Stream,
+    F: Fn(&DynamicStreamed) -> bool + Send + Sync + 'static,
+{
+    /// Creates a new filtered stream that only emits events matching the predicate
+    pub fn new(inner: S, predicate: F) -> Self {
+        Self {
+            inner,
+            predicate: Arc::new(predicate),
+        }
+    }
+}
+
+#[async_trait]
+impl<S, F> Stream for FilteredStream<S, F>
+where
+    S: Stream + Send + Sync + 'static,
+    F: Fn(&DynamicStreamed) -> bool + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let predicate = self.predicate.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    if (predicate)(event.as_ref()) {
+                        let _ = tx.send(event);
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that merges events from two streams
+#[derive(Debug)]
+pub struct MergedStream<S1, S2> {
+    inner1: S1,
+    inner2: S2,
+}
+
+impl<S1, S2> MergedStream<S1, S2>
+where
+    S1: Stream,
+    S2: Stream,
+{
+    /// Creates a new merged stream that combines events from two source streams
+    pub const fn new(inner1: S1, inner2: S2) -> Self {
+        Self { inner1, inner2 }
+    }
+}
+
+#[async_trait]
+impl<S1, S2> Stream for MergedStream<S1, S2>
+where
+    S1: Stream + Send + Sync + 'static,
+    S2: Stream + Send + Sync + 'static,
+{
+    type Config = (S1::Config, S2::Config);
+
+    async fn health(&self) -> StreamHealth {
+        let h1 = self.inner1.health().await;
+        let h2 = self.inner2.health().await;
+
+        // Combine health from both streams
+        StreamHealth {
+            is_connected: h1.is_connected && h2.is_connected,
+            last_event_time: match (h1.last_event_time, h2.last_event_time) {
+                (Some(t1), Some(t2)) => Some(t1.max(t2)),
+                (Some(t), None) | (None, Some(t)) => Some(t),
+                _ => None,
+            },
+            error_count: h1.error_count.saturating_add(h2.error_count),
+            events_processed: h1.events_processed.saturating_add(h2.events_processed),
+            backlog_size: match (h1.backlog_size, h2.backlog_size) {
+                (Some(b1), Some(b2)) => Some(b1.saturating_add(b2)),
+                (Some(b), None) | (None, Some(b)) => Some(b),
+                _ => None,
+            },
+            custom_metrics: None,
+            stream_info: None,
+        }
+    }
+    fn is_running(&self) -> bool {
+        self.inner1.is_running() || self.inner2.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner1.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner1.start(config.0).await?;
+        self.inner2.start(config.1).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        let r1 = self.inner1.stop().await;
+        let r2 = self.inner2.stop().await;
+        r1?;
+        r2
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut rx1 = self.inner1.subscribe();
+        let mut rx2 = self.inner2.subscribe();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    event1 = rx1.recv() => {
+                        match event1 {
+                            Ok(event) => {
+                                let _ = tx.send(event);
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    event2 = rx2.recv() => {
+                        match event2 {
+                            Ok(event) => {
+                                let _ = tx.send(event);
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that batches events
+#[derive(Debug)]
+pub struct BatchedStream<S> {
+    batch_size: usize,
+    inner: S,
+    timeout: Duration,
+}
+
+impl<S> BatchedStream<S>
+where
+    S: Stream,
+{
+    /// Creates a new batched stream that groups events by size or timeout
+    pub const fn new(inner: S, batch_size: usize, timeout: Duration) -> Self {
+        Self {
+            batch_size,
+            inner,
+            timeout,
+        }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for BatchedStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let batch_size = self.batch_size;
+        let timeout_duration = self.timeout;
+
+        tokio::spawn(async move {
+            let mut batch = Vec::new();
+            let mut timer: Interval = interval(timeout_duration);
+
+            loop {
+                tokio::select! {
+                    event = inner_rx.recv() => {
+                        match event {
+                            Ok(event) => {
+                                batch.push(event);
+                                if batch.len() >= batch_size {
+                                    // For now, just send events individually
+                                    // In production, you'd wrap them in a batch event
+                                    for evt in batch {
+                                        let _ = tx.send(evt);
+                                    }
+                                    batch = Vec::default();
+                                }
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    _ = timer.tick() => {
+                        if !batch.is_empty() {
+                            for evt in batch {
+                                let _ = tx.send(evt);
+                            }
+                            batch = Vec::default();
+                        }
+                    }
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that debounces events
+#[derive(Debug)]
+pub struct DebouncedStream<S> {
+    duration: Duration,
+    inner: S,
+}
+
+impl<S> DebouncedStream<S>
+where
+    S: Stream,
+{
+    /// Creates a new debounced stream that only emits events after a quiet period
+    pub const fn new(inner: S, duration: Duration) -> Self {
+        Self { duration, inner }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for DebouncedStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let duration = self.duration;
+
+        tokio::spawn(async move {
+            let mut last_event = None;
+            let mut timer: Interval = interval(duration);
+
+            loop {
+                tokio::select! {
+                    event = inner_rx.recv() => {
+                        match event {
+                            Ok(event) => {
+                                last_event = Some(event);
+                                timer.reset();
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    _ = timer.tick() => {
+                        let taken_event = last_event.take();
+                        if let Some(event) = taken_event {
+                            let _ = tx.send(event);
+                        }
+                    }
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that throttles events
+#[derive(Debug)]
+pub struct ThrottledStream<S> {
+    duration: Duration,
+    inner: S,
+}
+
+impl<S> ThrottledStream<S>
+where
+    S: Stream,
+{
+    /// Creates a new throttled stream that limits the rate of events
+    pub const fn new(inner: S, duration: Duration) -> Self {
+        Self { duration, inner }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for ThrottledStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let duration = self.duration;
+
+        tokio::spawn(async move {
+            let mut last_send = Instant::now();
+
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let now = Instant::now();
+                    if now.duration_since(last_send) >= duration {
+                        let _ = tx.send(event);
+                        last_send = now;
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that takes only N events
+#[derive(Debug)]
+pub struct TakeStream<S> {
+    count: Arc<AtomicUsize>,
+    inner: S,
+    max_count: usize,
+}
+
+impl<S> TakeStream<S>
+where
+    S: Stream,
+{
+    /// Creates a new take stream that emits only the first N events
+    pub fn new(inner: S, count: usize) -> Self {
+        Self {
+            count: Arc::new(AtomicUsize::new(0)),
+            inner,
+            max_count: count,
+        }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for TakeStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let count = self.count.clone();
+        let max_count = self.max_count;
+
+        tokio::spawn(async move {
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let current = count.fetch_add(1, Ordering::SeqCst);
+                    if current < max_count {
+                        let _ = tx.send(event);
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+
+        rx
+    }
+}
+
+/// Stream that skips N events
+#[derive(Debug)]
+pub struct SkipStream<S> {
+    inner: S,
+    skip_count: Arc<AtomicUsize>,
+    target_skip: usize,
+}
+
+impl<S> SkipStream<S>
+where
+    S: Stream,
+{
+    /// Creates a new skip stream that ignores the first N events
+    pub fn new(inner: S, count: usize) -> Self {
+        Self {
+            inner,
+            skip_count: Arc::new(AtomicUsize::new(0)),
+            target_skip: count,
+        }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for SkipStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Config = S::Config;
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamed>> {
+        let (tx, rx) = broadcast::channel(10000);
+        let mut inner_rx = self.inner.subscribe();
+        let skip_count = self.skip_count.clone();
+        let target_skip = self.target_skip;
+
+        tokio::spawn(async move {
+            loop {
+                let recv_result = inner_rx.recv().await;
+                if let Ok(event) = recv_result {
+                    let current = skip_count.load(Ordering::SeqCst);
+                    if current >= target_skip {
+                        let _ = tx.send(event);
+                    } else {
+                        skip_count.fetch_add(1, Ordering::SeqCst);
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+
+        rx
+    }
+}

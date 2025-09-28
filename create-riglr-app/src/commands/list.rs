@@ -6,8 +6,7 @@ use console::style;
 
 /// List all available templates
 pub async fn run() -> Result<()> {
-    let manager = TemplateManager::default();
-    let templates = manager.list_templates()?;
+    let templates = TemplateManager::list_templates();
 
     println!("{}", style("Available Templates:").cyan().bold());
     println!();

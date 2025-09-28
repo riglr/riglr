@@ -3,6 +3,14 @@
 use regex::Regex;
 
 /// Validate project name
+///
+/// # Panics
+///
+/// Panics if the first character cannot be extracted (empty string is handled separately)
+///
+/// # Errors
+///
+/// Returns an error if the project name is invalid
 pub fn validate_project_name(name: &str) -> Result<(), String> {
     // Check if empty
     if name.trim().is_empty() {
@@ -15,12 +23,15 @@ pub fn validate_project_name(name: &str) -> Result<(), String> {
     }
 
     // Check if it starts with a letter or underscore
-    if !name.chars().next().unwrap().is_alphabetic() && !name.starts_with('_') {
-        return Err("Project name must start with a letter or underscore".to_string());
+    if let Some(first_char) = name.chars().next() {
+        if !first_char.is_alphabetic() && !name.starts_with('_') {
+            return Err("Project name must start with a letter or underscore".to_string());
+        }
     }
 
     // Check for valid characters (alphanumeric, underscore, hyphen)
-    let re = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_-]*$").unwrap();
+    let re = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
+        .map_err(|_| "Internal error: invalid regex".to_string())?;
     if !re.is_match(name) {
         return Err(
             "Project name can only contain letters, numbers, underscores, and hyphens".to_string(),
@@ -38,13 +49,21 @@ pub fn validate_project_name(name: &str) -> Result<(), String> {
         "node_modules",
     ];
     if reserved.contains(&name.to_lowercase().as_str()) {
-        return Err(format!("'{}' is a reserved name", name));
+        return Err(format!("'{name}' is a reserved name"));
     }
 
     Ok(())
 }
 
 /// Validate email address
+///
+/// # Panics
+///
+/// Panics if the regex compilation fails (should not happen with valid regex)
+///
+/// # Errors
+///
+/// Returns an error if the email format is invalid
 pub fn validate_email(email: &str) -> Result<(), String> {
     // Check for double dots which are invalid
     if email.contains("..") {
@@ -52,7 +71,8 @@ pub fn validate_email(email: &str) -> Result<(), String> {
     }
 
     // Updated regex to support apostrophes but exclude double dots
-    let re = Regex::new(r"^[a-zA-Z0-9._%+'+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+    let re = Regex::new(r"^[a-zA-Z0-9._%+'+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+        .map_err(|_| "Internal error: invalid regex".to_string())?;
     if re.is_match(email) {
         Ok(())
     } else {
@@ -61,14 +81,20 @@ pub fn validate_email(email: &str) -> Result<(), String> {
 }
 
 /// Validate URL
+///
+/// # Errors
+///
+/// Returns an error if the URL format is invalid
 #[allow(dead_code)]
 pub fn validate_url(url: &str) -> Result<(), String> {
     if url.starts_with("http://") || url.starts_with("https://") {
         // Check if there's actual content after the protocol
-        let after_protocol = if url.starts_with("https://") {
-            &url[8..]
+        let after_protocol = if let Some(stripped) = url.strip_prefix("https://") {
+            stripped
+        } else if let Some(stripped) = url.strip_prefix("http://") {
+            stripped
         } else {
-            &url[7..]
+            return Err("URL must start with http:// or https://".to_string());
         };
 
         if after_protocol.is_empty() {
@@ -82,6 +108,10 @@ pub fn validate_url(url: &str) -> Result<(), String> {
 }
 
 /// Validate port number
+///
+/// # Errors
+///
+/// Returns an error if the port number is invalid
 #[allow(dead_code)]
 pub fn validate_port(port: &str) -> Result<(), String> {
     match port.parse::<u16>() {
@@ -91,6 +121,7 @@ pub fn validate_port(port: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

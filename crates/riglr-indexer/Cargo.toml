@@ -1,0 +1,125 @@
+[package]
+name = "riglr-indexer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Production-grade blockchain indexing service for riglr agents"
+
+[[bin]]
+name = "riglr-indexer"
+path = "src/main.rs"
+
+[[bin]]
+name = "riglr-indexer-cli"
+path = "src/bin/cli.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core riglr dependencies
+riglr-core = { workspace = true  }
+riglr-events-core = { workspace = true  }
+riglr-solana-events = { workspace = true  }
+riglr-streams = { workspace = true  }
+
+# Async and concurrency
+tokio = { workspace = true, features = ["full", "parking_lot"] }
+tokio-util = { workspace = true, features = ["time"] }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+
+# Database
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "chrono",
+    "uuid",
+    "json"
+] }
+clickhouse = "0.13.3"
+
+# Caching and messaging
+redis = { workspace = true, features = ["tokio-comp", "connection-manager"] }
+bb8 = "0.9.0"
+bb8-redis = "0.24.0"
+
+# HTTP server
+axum = { version = "0.8.4", features = ["ws", "tracing"] }
+tower = { workspace = true, features = ["util", "timeout", "load-shed", "limit"] }
+tower-http = { version = "0.6.6", features = ["trace", "cors"] }
+hyper = { workspace = true }
+reqwest = { workspace = true }
+
+# WebSocket
+tokio-tungstenite = { workspace = true }
+tokio-stream = { workspace = true }
+
+# Metrics and monitoring
+prometheus = "0.14.0"
+metrics = "0.24.2"
+metrics-prometheus = "0.11.0"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+
+# Time and date
+chrono = { workspace = true, features = ["serde"] }
+
+# UUID
+uuid = { workspace = true }
+
+# Configuration
+config = { workspace = true }
+humantime-serde = { workspace = true }
+num_cpus = { workspace = true }
+dotenvy = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+
+# Retry and rate limiting
+backoff = { workspace = true }
+governor = "0.10.1"
+
+# Memory and performance
+parking_lot = "0.12"
+dashmap = { workspace = true }
+
+# Crypto and hashing
+blake3 = "1.5"
+
+# Compression
+zstd = "0.13"
+
+# Utilities
+humantime = "2.1"
+bytesize = "2.0.1"
+regex = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+proptest = "1.4"
+criterion = { workspace = true }
+
+
+[features]
+default = ["postgres", "metrics"]
+postgres = ["sqlx/postgres"]
+clickhouse = []
+metrics = []

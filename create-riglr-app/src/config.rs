@@ -6,7 +6,7 @@ use std::fmt;
 
 /// Project configuration for scaffolding
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
+pub struct Project {
     /// The name of the project
     pub name: String,
     /// The template to use for project scaffolding
@@ -32,9 +32,9 @@ pub struct ProjectConfig {
 }
 
 /// Available project templates
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Template {
-    /// RESTful API service template with blockchain integration
+    /// `RESTful` API service template with blockchain integration
     ApiServiceBackend,
     /// Real-time blockchain data analysis template
     DataAnalyticsBot,
@@ -48,41 +48,46 @@ pub enum Template {
 
 impl Template {
     /// Parse a template from a string identifier
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the template string is not recognized
     pub fn parse(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "api-service" | "api" => Ok(Template::ApiServiceBackend),
-            "analytics" | "data-analytics" => Ok(Template::DataAnalyticsBot),
-            "event-driven" | "trading-engine" => Ok(Template::EventDrivenTradingEngine),
-            "minimal-api" | "minimal" => Ok(Template::MinimalApi),
-            "custom" => Ok(Template::Custom),
+            "api-service" | "api" => Ok(Self::ApiServiceBackend),
+            "analytics" | "data-analytics" => Ok(Self::DataAnalyticsBot),
+            "event-driven" | "trading-engine" => Ok(Self::EventDrivenTradingEngine),
+            "minimal-api" | "minimal" => Ok(Self::MinimalApi),
+            "custom" => Ok(Self::Custom),
             _ => Err(anyhow!("Unknown template: {}", s)),
         }
     }
 
     /// Get the description for this template
-    pub fn description(&self) -> &str {
-        match self {
-            Template::ApiServiceBackend => {
+    #[must_use]
+    pub const fn description(&self) -> &str {
+        match *self {
+            Self::ApiServiceBackend => {
                 "RESTful API service with blockchain integration and AI agents"
             }
-            Template::DataAnalyticsBot => {
+            Self::DataAnalyticsBot => {
                 "Real-time blockchain data analysis and insights generation"
             }
-            Template::EventDrivenTradingEngine => {
+            Self::EventDrivenTradingEngine => {
                 "Event-driven automated trading with complex strategies"
             }
-            Template::MinimalApi => {
+            Self::MinimalApi => {
                 "A barebones API service with a health check and a single agent endpoint"
             }
-            Template::Custom => "Minimal template with basic structure",
+            Self::Custom => "Minimal template with basic structure",
         }
     }
 
-    #[allow(dead_code)]
     /// Get the default features for this template
+    #[must_use]
     pub fn default_features(&self) -> Vec<Feature> {
-        match self {
-            Template::ApiServiceBackend => vec![
+        match *self {
+            Self::ApiServiceBackend => vec![
                 Feature::WebTools,
                 Feature::Auth,
                 Feature::Redis,
@@ -90,7 +95,7 @@ impl Template {
                 Feature::ApiDocs,
                 Feature::Logging,
             ],
-            Template::DataAnalyticsBot => vec![
+            Self::DataAnalyticsBot => vec![
                 Feature::WebTools,
                 Feature::GraphMemory,
                 Feature::Streaming,
@@ -98,34 +103,33 @@ impl Template {
                 Feature::Redis,
                 Feature::Logging,
             ],
-            Template::EventDrivenTradingEngine => vec![
+            Self::EventDrivenTradingEngine => vec![
                 Feature::WebTools,
                 Feature::Streaming,
                 Feature::Redis,
                 Feature::Database,
                 Feature::Logging,
             ],
-            Template::MinimalApi => vec![Feature::Logging],
-            Template::Custom => vec![Feature::Logging],
+            Self::MinimalApi | Self::Custom => vec![Feature::Logging],
         }
     }
 }
 
 impl fmt::Display for Template {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Template::ApiServiceBackend => "api-service",
-            Template::DataAnalyticsBot => "data-analytics",
-            Template::EventDrivenTradingEngine => "event-driven",
-            Template::MinimalApi => "minimal-api",
-            Template::Custom => "custom",
+        let s = match *self {
+            Self::ApiServiceBackend => "api-service",
+            Self::DataAnalyticsBot => "data-analytics",
+            Self::EventDrivenTradingEngine => "event-driven",
+            Self::MinimalApi => "minimal-api",
+            Self::Custom => "custom",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
 /// Web server framework options
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServerFramework {
     /// Actix Web framework
     Actix,
@@ -138,18 +142,18 @@ pub enum ServerFramework {
 }
 
 impl ServerFramework {
-    #[allow(dead_code)]
     /// Get the dependencies for this server framework
+    #[must_use]
     pub fn dependencies(&self) -> Vec<(&str, &str)> {
-        match self {
-            ServerFramework::Actix => vec![
+        match *self {
+            Self::Actix => vec![
                 ("actix-web", "4"),
                 ("actix-web-lab", "0.20"),
                 ("actix-cors", "0.7"),
             ],
-            ServerFramework::Axum => vec![("axum", "0.7"), ("tower", "0.5"), ("tower-http", "0.6")],
-            ServerFramework::Warp => vec![("warp", "0.3"), ("tokio-stream", "0.1")],
-            ServerFramework::Rocket => vec![("rocket", "0.5"), ("rocket_cors", "0.6")],
+            Self::Axum => vec![("axum", "0.7"), ("tower", "0.5"), ("tower-http", "0.6")],
+            Self::Warp => vec![("warp", "0.3"), ("tokio-stream", "0.1")],
+            Self::Rocket => vec![("rocket", "0.5"), ("rocket_cors", "0.6")],
         }
     }
 }
@@ -175,29 +179,34 @@ pub enum Chain {
 
 impl Chain {
     /// Parse a chain from a string identifier
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the chain string is not recognized
     pub fn parse(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "solana" | "sol" => Ok(Chain::Solana),
-            "ethereum" | "eth" => Ok(Chain::Ethereum),
-            "polygon" | "matic" => Ok(Chain::Polygon),
-            "arbitrum" | "arb" => Ok(Chain::Arbitrum),
-            "base" => Ok(Chain::Base),
-            "bsc" | "binance" => Ok(Chain::Bsc),
-            "avalanche" | "avax" => Ok(Chain::Avalanche),
+            "solana" | "sol" => Ok(Self::Solana),
+            "ethereum" | "eth" => Ok(Self::Ethereum),
+            "polygon" | "matic" => Ok(Self::Polygon),
+            "arbitrum" | "arb" => Ok(Self::Arbitrum),
+            "base" => Ok(Self::Base),
+            "bsc" | "binance" => Ok(Self::Bsc),
+            "avalanche" | "avax" => Ok(Self::Avalanche),
             _ => Err(anyhow!("Unknown chain: {}", s)),
         }
     }
 
     /// Get the string representation of the chain
-    pub fn as_str(&self) -> &str {
-        match self {
-            Chain::Solana => "solana",
-            Chain::Ethereum => "ethereum",
-            Chain::Polygon => "polygon",
-            Chain::Arbitrum => "arbitrum",
-            Chain::Base => "base",
-            Chain::Bsc => "bsc",
-            Chain::Avalanche => "avalanche",
+    #[must_use]
+    pub const fn as_str(&self) -> &str {
+        match *self {
+            Self::Solana => "solana",
+            Self::Ethereum => "ethereum",
+            Self::Polygon => "polygon",
+            Self::Arbitrum => "arbitrum",
+            Self::Base => "base",
+            Self::Bsc => "bsc",
+            Self::Avalanche => "avalanche",
         }
     }
 }
@@ -243,43 +252,48 @@ pub enum Feature {
 
 impl Feature {
     /// Parse a feature from a string identifier
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the feature string is not recognized
     pub fn parse(s: &str) -> Result<Self> {
-        match s.to_lowercase().replace("_", "-").as_str() {
-            "web-tools" | "web" => Ok(Feature::WebTools),
-            "graph-memory" | "graph" => Ok(Feature::GraphMemory),
-            "cross-chain" | "crosschain" => Ok(Feature::CrossChain),
-            "auth" | "authentication" => Ok(Feature::Auth),
-            "streaming" | "stream" => Ok(Feature::Streaming),
-            "database" | "db" => Ok(Feature::Database),
-            "redis" | "cache" => Ok(Feature::Redis),
-            "api-docs" | "apidocs" | "openapi" => Ok(Feature::ApiDocs),
-            "ci-cd" | "cicd" | "ci" => Ok(Feature::CiCd),
-            "docker" | "container" => Ok(Feature::Docker),
-            "tests" | "test" => Ok(Feature::Tests),
-            "examples" | "example" => Ok(Feature::Examples),
-            "docs" | "documentation" => Ok(Feature::Docs),
-            "logging" | "logs" => Ok(Feature::Logging),
+        match s.to_lowercase().replace('_', "-").as_str() {
+            "web-tools" | "web" => Ok(Self::WebTools),
+            "graph-memory" | "graph" => Ok(Self::GraphMemory),
+            "cross-chain" | "crosschain" => Ok(Self::CrossChain),
+            "auth" | "authentication" => Ok(Self::Auth),
+            "streaming" | "stream" => Ok(Self::Streaming),
+            "database" | "db" => Ok(Self::Database),
+            "redis" | "cache" => Ok(Self::Redis),
+            "api-docs" | "apidocs" | "openapi" => Ok(Self::ApiDocs),
+            "ci-cd" | "cicd" | "ci" => Ok(Self::CiCd),
+            "docker" | "container" => Ok(Self::Docker),
+            "tests" | "test" => Ok(Self::Tests),
+            "examples" | "example" => Ok(Self::Examples),
+            "docs" | "documentation" => Ok(Self::Docs),
+            "logging" | "logs" => Ok(Self::Logging),
             _ => Err(anyhow!("Unknown feature: {}", s)),
         }
     }
 
     /// Get the string representation of the feature
-    pub fn as_str(&self) -> &str {
-        match self {
-            Feature::WebTools => "web_tools",
-            Feature::GraphMemory => "graph_memory",
-            Feature::CrossChain => "cross_chain",
-            Feature::Auth => "auth",
-            Feature::Streaming => "streaming",
-            Feature::Database => "database",
-            Feature::Redis => "redis",
-            Feature::ApiDocs => "api_docs",
-            Feature::CiCd => "cicd",
-            Feature::Docker => "docker",
-            Feature::Tests => "tests",
-            Feature::Examples => "examples",
-            Feature::Docs => "docs",
-            Feature::Logging => "logging",
+    #[must_use]
+    pub const fn as_str(&self) -> &str {
+        match *self {
+            Self::WebTools => "web_tools",
+            Self::GraphMemory => "graph_memory",
+            Self::CrossChain => "cross_chain",
+            Self::Auth => "auth",
+            Self::Streaming => "streaming",
+            Self::Database => "database",
+            Self::Redis => "redis",
+            Self::ApiDocs => "api_docs",
+            Self::CiCd => "cicd",
+            Self::Docker => "docker",
+            Self::Tests => "tests",
+            Self::Examples => "examples",
+            Self::Docs => "docs",
+            Self::Logging => "logging",
         }
     }
 }
@@ -307,8 +321,9 @@ pub struct TemplateInfo {
 
 impl TemplateInfo {
     /// Create template info from a template
+    #[must_use]
     pub fn from_template(template: &Template) -> Self {
-        let (features, chains, tools) = match template {
+        let (features, chains, tools) = match *template {
             Template::ApiServiceBackend => (
                 vec![
                     "RESTful API endpoints".to_string(),
@@ -358,7 +373,7 @@ impl TemplateInfo {
             _ => (vec![], vec![], vec![]),
         };
 
-        TemplateInfo {
+        Self {
             name: template.to_string(),
             description: template.description().to_string(),
             features,
@@ -369,6 +384,7 @@ impl TemplateInfo {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -672,7 +688,7 @@ mod tests {
 
     #[test]
     fn test_project_config_serialization() {
-        let config = ProjectConfig {
+        let config = Project {
             name: "test-project".to_string(),
             template: Template::ApiServiceBackend,
             chains: vec![Chain::Solana, Chain::Ethereum],
@@ -687,7 +703,7 @@ mod tests {
         };
 
         let serialized = serde_json::to_string(&config).unwrap();
-        let deserialized: ProjectConfig = serde_json::from_str(&serialized).unwrap();
+        let deserialized: Project = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(config.name, deserialized.name);
         assert_eq!(config.template, deserialized.template);
@@ -753,20 +769,20 @@ mod tests {
     #[test]
     fn test_template_debug_fmt() {
         let template = Template::ApiServiceBackend;
-        let debug_str = format!("{:?}", template);
+        let debug_str = format!("{template:?}");
         assert!(debug_str.contains("ApiServiceBackend"));
     }
 
     #[test]
     fn test_server_framework_debug_fmt() {
         let framework = ServerFramework::Axum;
-        let debug_str = format!("{:?}", framework);
+        let debug_str = format!("{framework:?}");
         assert!(debug_str.contains("Axum"));
     }
 
     #[test]
     fn test_project_config_debug_fmt() {
-        let config = ProjectConfig {
+        let config = Project {
             name: "test".to_string(),
             template: Template::Custom,
             chains: vec![],
@@ -780,8 +796,8 @@ mod tests {
             include_docs: false,
         };
 
-        let debug_str = format!("{:?}", config);
-        assert!(debug_str.contains("ProjectConfig"));
+        let debug_str = format!("{config:?}");
+        assert!(debug_str.contains("Project"));
     }
 
     #[test]
@@ -794,7 +810,7 @@ mod tests {
             included_tools: vec![],
         };
 
-        let debug_str = format!("{:?}", info);
+        let debug_str = format!("{info:?}");
         assert!(debug_str.contains("TemplateInfo"));
     }
 
@@ -814,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_project_config_clone() {
-        let config = ProjectConfig {
+        let config = Project {
             name: "test".to_string(),
             template: Template::Custom,
             chains: vec![Chain::Solana],

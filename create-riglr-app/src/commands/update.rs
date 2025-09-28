@@ -1,8 +1,9 @@
 //! Update command implementation
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -11,18 +12,18 @@ const DEFAULT_BRANCH: &str = "main";
 
 /// Update templates from remote repository
 #[allow(dead_code)]
-pub async fn run() -> Result<()> {
-    run_with_options(None, None).await
+pub fn run() -> Result<()> {
+    run_with_options(None, None)
 }
 
 /// Update templates with custom options
-pub async fn run_with_options(custom_url: Option<String>, branch: Option<String>) -> Result<()> {
-    let repo_url = custom_url.as_deref().unwrap_or(DEFAULT_TEMPLATE_REPO);
-    let branch_name = branch.as_deref().unwrap_or(DEFAULT_BRANCH);
+pub fn run_with_options(custom_url: Option<&str>, branch: Option<&str>) -> Result<()> {
+    let repo_url = custom_url.unwrap_or(DEFAULT_TEMPLATE_REPO);
+    let branch_name = branch.unwrap_or(DEFAULT_BRANCH);
 
     // Check if git is installed
-    if !is_git_installed()? {
-        return Err(anyhow::anyhow!(
+    if !is_git_installed() {
+        return Err(anyhow!(
             "Git is not installed or not available in PATH. Please install Git to update templates."
         ));
     }
@@ -32,18 +33,17 @@ pub async fn run_with_options(custom_url: Option<String>, branch: Option<String>
     println!("Branch: {}", style(branch_name).dim());
 
     let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.green} {msg}")
-            .unwrap(),
-    );
+    let spinner_style = ProgressStyle::default_spinner()
+        .template("{spinner:.green} {msg}")
+        .map_err(|e| anyhow!("Failed to create progress bar template: {}", e))?;
+    pb.set_style(spinner_style);
     pb.set_message("Fetching latest templates...");
 
     let cache_dir = get_template_cache_dir()?;
 
     // Create cache directory if it doesn't exist
     if !cache_dir.exists() {
-        std::fs::create_dir_all(&cache_dir).context("Failed to create template cache directory")?;
+        fs::create_dir_all(&cache_dir).context("Failed to create template cache directory")?;
     }
 
     // Check if repository exists
@@ -73,10 +73,10 @@ pub fn get_template_cache_dir() -> Result<PathBuf> {
 }
 
 /// Check if git is installed
-fn is_git_installed() -> Result<bool> {
+fn is_git_installed() -> bool {
     match Command::new("git").arg("--version").output() {
-        Ok(output) => Ok(output.status.success()),
-        Err(_) => Ok(false),
+        Ok(output) => output.status.success(),
+        Err(_) => false,
     }
 }
 
@@ -90,14 +90,14 @@ fn clone_new_repo(url: &str, path: &Path, branch: &str) -> Result<()> {
             "--depth",
             "1",
             url,
-            path.to_str().unwrap(),
+            path.to_str().ok_or_else(|| anyhow!("Invalid path"))?,
         ])
         .output()
         .context("Failed to execute git clone")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!(
+        return Err(anyhow!(
             "Failed to clone repository from {}: {}",
             url,
             stderr
@@ -121,13 +121,13 @@ fn update_existing_repo(path: &Path, branch: &str) -> Result<()> {
         // Try to create the branch if it doesn't exist
         let output = Command::new("git")
             .current_dir(path)
-            .args(["checkout", "-b", branch, &format!("origin/{}", branch)])
+            .args(["checkout", "-b", branch, &format!("origin/{branch}")])
             .output()
             .context("Failed to execute git checkout -b")?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to checkout branch {}: {}",
                 branch,
                 stderr
@@ -144,7 +144,7 @@ fn update_existing_repo(path: &Path, branch: &str) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!("Failed to fetch from origin: {}", stderr));
+        return Err(anyhow!("Failed to fetch from origin: {}", stderr));
     }
 
     // Pull the latest changes
@@ -160,7 +160,7 @@ fn update_existing_repo(path: &Path, branch: &str) -> Result<()> {
         if stderr.contains("Already up to date") || stderr.contains("Already up-to-date") {
             return Ok(());
         }
-        return Err(anyhow::anyhow!(
+        return Err(anyhow!(
             "Failed to pull from origin/{}: {}",
             branch,
             stderr

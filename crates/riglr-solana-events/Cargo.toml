@@ -1,0 +1,52 @@
+[package]
+name = "riglr-solana-events"
+version.workspace = true
+authors = ["riglr project contributors"]
+edition = "2021"
+description = "Standalone, high-performance Solana event parsing library used by riglr and other projects."
+license = "MIT"
+
+[lib]
+name = "riglr_solana_events"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core riglr dependencies
+riglr-events-core = { workspace = true, features = ["solana"]  }
+
+# Legacy dependencies (gradually remove these)
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+bs58 = { workspace = true }
+borsh = { version = "1", features = ["derive"] }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+solana-transaction-status = { workspace = true }
+solana-message = { workspace = true }
+uuid = { workspace = true }
+reqwest = { workspace = true }
+once_cell = { workspace = true }
+
+# High-performance parsing dependencies
+memmap2 = "0.9"
+dashmap = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+
+
+[features]
+default = []

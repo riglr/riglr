@@ -1,0 +1,65 @@
+[package]
+name = "riglr-asterdex"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A suite of rig-compatible tools for interacting with Asterdex Futures v3 API"
+readme = "README.md"
+keywords = ["asterdex", "derivatives", "futures", "ai", "agent", "blockchain", "rig"]
+categories = ["cryptography::cryptocurrencies", "web-programming"]
+documentation = "https://docs.rs/riglr-asterdex"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core riglr and rig dependencies
+rig-core = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-macros = { workspace = true  }
+
+# Async and Error Handling
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization and Schema
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Time and date
+chrono = { workspace = true }
+
+# Decimal arithmetic for precise financial calculations
+rust_decimal = "1.35"
+
+# Cryptographic operations for signing (Asterdex v3 authentication)
+hex = { workspace = true }
+sha3 = "0.10"  # For Keccak-256
+ethers-core = "2.0"  # For Ethereum types and ABI encoding
+ethers-signers = "2.0"  # For ECDSA signing
+ethabi = "18.0"  # For ABI encoding
+
+# BTreeMap is in std, so we don't need external deps for it
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tracing-subscriber = { workspace = true }
+criterion = { workspace = true }
+mockito = "1.0"
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+alloy = { workspace = true }
+riglr-solana-tools = { workspace = true  }

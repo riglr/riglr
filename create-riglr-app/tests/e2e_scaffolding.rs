@@ -6,6 +6,7 @@
 
 use anyhow::Result;
 use std::fs;
+use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use toml::Value;
@@ -14,12 +15,23 @@ use toml::Value;
 fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
     println!("Starting scaffolding generation test...");
 
-    // Create a temporary directory for the test
     let temp_dir = TempDir::new()?;
     let app_name = "test-riglr-app";
     let app_path = temp_dir.path().join(app_name);
 
-    // Build create-riglr-app if not already built
+    build_create_riglr_app()?;
+    generate_test_project(app_name, &app_path)?;
+    verify_project_structure(&app_path, app_name);
+    verify_cargo_toml(&app_path, app_name)?;
+    verify_env_configuration(&app_path)?;
+    test_generated_project(&app_path);
+
+    println!("Test 6.1 Passed: Scaffolding generation, build, and test successful");
+    Ok(())
+}
+
+/// Build the create-riglr-app binary
+fn build_create_riglr_app() -> Result<()> {
     println!("Building create-riglr-app...");
     let build_output = Command::new("cargo")
         .args(["build", "--package", "create-riglr-app"])
@@ -30,8 +42,11 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
         eprintln!("{}", String::from_utf8_lossy(&build_output.stderr));
         return Err(anyhow::anyhow!("Failed to build create-riglr-app"));
     }
+    Ok(())
+}
 
-    // Run create-riglr-app to generate the project with --yes flag to skip prompts
+/// Generate a test project using create-riglr-app
+fn generate_test_project(app_name: &str, app_path: &Path) -> Result<()> {
     println!("Generating project with create-riglr-app...");
     let app_path_str = app_path.to_string_lossy();
     let create_output = Command::new("cargo")
@@ -53,9 +68,12 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
         return Err(anyhow::anyhow!("Failed to create app"));
     }
 
-    println!("Project generated at: {:?}", app_path);
+    println!("Project generated at: {}", app_path.display());
+    Ok(())
+}
 
-    // Verify the generated project structure
+/// Verify the basic project structure exists
+fn verify_project_structure(app_path: &Path, _app_name: &str) {
     assert!(app_path.exists(), "Project directory should be created");
     assert!(
         app_path.join("Cargo.toml").exists(),
@@ -70,8 +88,11 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
         app_path.join(".env.example").exists(),
         ".env.example should exist"
     );
+}
 
-    // Check Cargo.toml structure
+/// Verify Cargo.toml structure and dependencies
+#[allow(clippy::unwrap_used)]
+fn verify_cargo_toml(app_path: &Path, app_name: &str) -> Result<()> {
     let cargo_toml_content = fs::read_to_string(app_path.join("Cargo.toml"))?;
     let cargo_toml: Value = toml::from_str(&cargo_toml_content)?;
 
@@ -91,7 +112,6 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
         "Package name should match"
     );
 
-    // Check for riglr dependencies
     let deps = cargo_toml.get("dependencies").unwrap();
     assert!(
         deps.get("riglr-core").is_some(),
@@ -101,9 +121,11 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
         deps.get("rig-core").is_some(),
         "Should have rig-core dependency"
     );
-    // Note: riglr-agents and riglr-config might only be in api_service template
+    Ok(())
+}
 
-    // Check .env.example for testnet configuration
+/// Verify .env.example configuration
+fn verify_env_configuration(app_path: &Path) -> Result<()> {
     let env_content = fs::read_to_string(app_path.join(".env.example"))?;
     assert!(
         env_content.contains("RPC_URL_SOLANA")
@@ -121,41 +143,41 @@ fn test_6_1_generate_build_and_test_scaffolding() -> Result<()> {
             || env_content.contains("testnet"),
         ".env.example should reference public testnets, not localhost"
     );
+    Ok(())
+}
 
-    // Run cargo check on the generated project
+/// Test that the generated project compiles
+fn test_generated_project(app_path: &Path) {
     println!("Running cargo check on generated project...");
     let check_output = Command::new("cargo")
         .args(["check"])
-        .current_dir(&app_path)
-        .output()?;
+        .current_dir(app_path)
+        .output();
 
-    if !check_output.status.success() {
-        eprintln!("Warning: cargo check failed:");
-        eprintln!("{}", String::from_utf8_lossy(&check_output.stderr));
-        // Don't fail the test as the generated project might have dependency issues
-    } else {
-        println!("Cargo check passed!");
+    match check_output {
+        Ok(output) if output.status.success() => println!("Cargo check passed!"),
+        Ok(output) => {
+            eprintln!("Warning: cargo check failed:");
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+        Err(e) => eprintln!("Failed to run cargo check: {e}"),
     }
 
-    // Run cargo build on the generated project
     println!("Running cargo build on generated project...");
     let build_output = Command::new("cargo")
         .args(["build"])
-        .current_dir(&app_path)
+        .current_dir(app_path)
         .env("CARGO_TERM_COLOR", "never")
-        .output()?;
+        .output();
 
-    if !build_output.status.success() {
-        eprintln!("Warning: cargo build failed:");
-        eprintln!("{}", String::from_utf8_lossy(&build_output.stderr));
-        // Don't fail the test as the generated project might have dependency issues
-    } else {
-        println!("Cargo build passed!");
+    match build_output {
+        Ok(output) if output.status.success() => println!("Cargo build passed!"),
+        Ok(output) => {
+            eprintln!("Warning: cargo build failed:");
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+        Err(e) => eprintln!("Failed to run cargo build: {e}"),
     }
-
-    println!("Test 6.1 Passed: Scaffolding generation, build, and test successful");
-
-    Ok(())
 }
 
 #[test]
@@ -175,7 +197,7 @@ fn test_6_2_template_customization() -> Result<()> {
     for (app_name, args) in templates {
         let app_path = temp_dir.path().join(app_name);
 
-        println!("Generating {} with template args: {:?}", app_name, args);
+        println!("Generating {app_name} with template args: {args:?}");
 
         // Run create-riglr-app with template options
         let app_path_str = app_path.to_string_lossy();
@@ -186,11 +208,10 @@ fn test_6_2_template_customization() -> Result<()> {
 
         if output.status.success() {
             // Verify the generated structure
-            assert!(app_path.exists(), "{} should be created", app_name);
+            assert!(app_path.exists(), "{app_name} should be created");
             assert!(
                 app_path.join("Cargo.toml").exists(),
-                "{} should have Cargo.toml",
-                app_name
+                "{app_name} should have Cargo.toml"
             );
 
             // Check for template-specific files
@@ -219,11 +240,10 @@ fn test_6_2_template_customization() -> Result<()> {
                 _ => {}
             }
 
-            println!("{} generated successfully", app_name);
+            println!("{app_name} generated successfully");
         } else {
             println!(
-                "Warning: Failed to generate {} (template might not exist)",
-                app_name
+                "Warning: Failed to generate {app_name} (template might not exist)"
             );
         }
     }
@@ -239,9 +259,17 @@ fn test_6_3_configuration_generation_with_conditional_env() -> Result<()> {
 
     let temp_dir = TempDir::new()?;
     let app_path = temp_dir.path().join("config-test-app");
-
-    // Generate app with --yes flag to skip prompts
     let app_name = "config-test-app";
+
+    generate_config_test_app(app_name, &app_path)?;
+    verify_configuration_files(&app_path)?;
+
+    println!("Test 6.3 Passed: Configuration generation test successful");
+    Ok(())
+}
+
+/// Generate app for configuration testing
+fn generate_config_test_app(app_name: &str, app_path: &Path) -> Result<()> {
     let app_path_str = app_path.to_string_lossy();
     let output = Command::new("cargo")
         .args([
@@ -259,92 +287,103 @@ fn test_6_3_configuration_generation_with_conditional_env() -> Result<()> {
     if !output.status.success() {
         return Err(anyhow::anyhow!("Failed to create app for config test"));
     }
+    Ok(())
+}
 
-    // Check configuration files
+/// Verify all configuration files are generated correctly
+fn verify_configuration_files(app_path: &Path) -> Result<()> {
     let config_files = vec![".env.example", "Cargo.toml", ".gitignore"];
 
     for file in config_files {
         let file_path = app_path.join(file);
-        assert!(file_path.exists(), "{} should exist", file);
+        assert!(file_path.exists(), "{file} should exist");
 
         let content = fs::read_to_string(&file_path)?;
-
-        match file {
-            ".env.example" => {
-                // Check for essential environment variables
-                assert!(
-                    content.contains("RPC_URL_SOLANA")
-                        || content.contains("RPC_URL_1")
-                        || content.contains("RPC_URL"),
-                    ".env.example should contain RPC URL"
-                );
-                assert!(
-                    content.contains("ANTHROPIC_API_KEY"),
-                    ".env.example should contain ANTHROPIC_API_KEY"
-                );
-
-                // Verify testnet configuration
-                assert!(
-                    content.contains("devnet")
-                        || content.contains("testnet")
-                        || content.contains("sepolia")
-                        || content.contains("publicnode"),
-                    ".env.example should reference public testnets"
-                );
-
-                // Check for API key placeholders
-                if content.contains("API_KEY") {
-                    assert!(
-                        content.contains("your-api-key")
-                            || content.contains("dummy")
-                            || content.contains("placeholder"),
-                        "API keys should have placeholder values"
-                    );
-                }
-            }
-            ".gitignore" => {
-                // Check for essential gitignore entries
-                assert!(
-                    content.contains("target/"),
-                    ".gitignore should exclude target/"
-                );
-                assert!(
-                    content.contains(".env"),
-                    ".gitignore should exclude .env files"
-                );
-                assert!(
-                    content.contains("Cargo.lock") || !content.contains("Cargo.lock"),
-                    ".gitignore should handle Cargo.lock appropriately"
-                );
-            }
-            "Cargo.toml" => {
-                // Parse and verify TOML structure
-                let cargo_toml: Value = toml::from_str(&content)?;
-
-                // Check package metadata
-                let package = cargo_toml.get("package").unwrap();
-                assert!(package.get("version").is_some(), "Should have version");
-                assert!(package.get("edition").is_some(), "Should have edition");
-
-                // Check dependencies
-                let deps = cargo_toml.get("dependencies").unwrap();
-                assert!(deps.as_table().is_some(), "Dependencies should be a table");
-
-                // Verify riglr dependencies are properly configured
-                if let Some(riglr_core) = deps.get("riglr-core") {
-                    // Check if it's properly configured (path or version)
-                    assert!(
-                        riglr_core.is_str() || riglr_core.is_table(),
-                        "riglr-core should be properly configured"
-                    );
-                }
-            }
-            _ => {}
-        }
+        verify_config_file_content(file, &content)?;
     }
+    Ok(())
+}
 
-    println!("Test 6.3 Passed: Configuration generation test successful");
+/// Verify the content of individual configuration files
+fn verify_config_file_content(file_name: &str, content: &str) -> Result<()> {
+    match file_name {
+        ".env.example" => {
+            verify_env_example_content(content);
+            Ok(())
+        },
+        ".gitignore" => {
+            verify_gitignore_content(content);
+            Ok(())
+        },
+        "Cargo.toml" => verify_cargo_toml_content(content),
+        _ => Ok(()),
+    }
+}
 
+/// Verify .env.example file content
+fn verify_env_example_content(content: &str) {
+    assert!(
+        content.contains("RPC_URL_SOLANA")
+            || content.contains("RPC_URL_1")
+            || content.contains("RPC_URL"),
+        ".env.example should contain RPC URL"
+    );
+    assert!(
+        content.contains("ANTHROPIC_API_KEY"),
+        ".env.example should contain ANTHROPIC_API_KEY"
+    );
+    assert!(
+        content.contains("devnet")
+            || content.contains("testnet")
+            || content.contains("sepolia")
+            || content.contains("publicnode"),
+        ".env.example should reference public testnets"
+    );
+
+    if content.contains("API_KEY") {
+        assert!(
+            content.contains("your-api-key")
+                || content.contains("dummy")
+                || content.contains("placeholder"),
+            "API keys should have placeholder values"
+        );
+    }
+}
+
+/// Verify .gitignore file content
+fn verify_gitignore_content(content: &str) {
+    assert!(
+        content.contains("target/"),
+        ".gitignore should exclude target/"
+    );
+    assert!(
+        content.contains(".env"),
+        ".gitignore should exclude .env files"
+    );
+    assert!(
+        content.contains("Cargo.lock") || !content.contains("Cargo.lock"),
+        ".gitignore should handle Cargo.lock appropriately"
+    );
+}
+
+/// Verify Cargo.toml file content
+#[allow(clippy::unwrap_used)]
+fn verify_cargo_toml_content(content: &str) -> Result<()> {
+    let cargo_toml: Value = toml::from_str(content)?;
+
+    let package = cargo_toml.get("package").unwrap();
+    assert!(package.get("version").is_some(), "Should have version");
+    assert!(package.get("edition").is_some(), "Should have edition");
+
+    let deps = cargo_toml.get("dependencies").unwrap();
+    assert!(deps.as_table().is_some(), "Dependencies should be a table");
+
+    if let Some(riglr_core) = deps.get("riglr-core") {
+        assert!(
+            riglr_core.is_str() || riglr_core.is_table(),
+            "riglr-core should be properly configured"
+        );
+    }
     Ok(())
 }
 
@@ -356,7 +395,17 @@ fn test_6_4_example_code_generation() -> Result<()> {
     let app_name = "example-app";
     let app_path = temp_dir.path().join(app_name);
 
-    // Generate app with examples
+    generate_example_app(app_name, &app_path)?;
+    verify_main_rs_content(&app_path)?;
+    check_examples_directory(&app_path)?;
+    verify_readme_content(&app_path)?;
+
+    println!("Test 6.4 Passed: Example code generation test successful");
+    Ok(())
+}
+
+/// Generate app with examples
+fn generate_example_app(app_name: &str, app_path: &Path) -> Result<()> {
     let app_path_str = app_path.to_string_lossy();
     let output = Command::new("cargo")
         .args([
@@ -374,7 +423,6 @@ fn test_6_4_example_code_generation() -> Result<()> {
 
     if !output.status.success() {
         println!("Warning: --with-examples flag might not be implemented");
-        // Try without the extra flag but with --yes
         let output = Command::new("cargo")
             .args([
                 "run",
@@ -392,26 +440,25 @@ fn test_6_4_example_code_generation() -> Result<()> {
             return Err(anyhow::anyhow!("Failed to create app"));
         }
     }
+    Ok(())
+}
 
-    // Check main.rs for example code
+/// Verify main.rs contains expected patterns
+fn verify_main_rs_content(app_path: &Path) -> Result<()> {
     let main_rs_path = app_path.join("src/main.rs");
     assert!(main_rs_path.exists(), "main.rs should exist");
 
     let main_content = fs::read_to_string(&main_rs_path)?;
 
-    // Verify the main file contains riglr imports
     assert!(
         main_content.contains("riglr") || main_content.contains("use "),
         "main.rs should contain riglr imports or use statements"
     );
-
-    // Check for async main function
     assert!(
         main_content.contains("async fn main") || main_content.contains("fn main"),
         "main.rs should have a main function"
     );
 
-    // Check for example patterns - updated for new architecture
     let example_patterns = [
         "ApplicationContext",
         "riglr_config::Config",
@@ -431,19 +478,20 @@ fn test_6_4_example_code_generation() -> Result<()> {
         pattern_count,
         example_patterns.len()
     );
+    Ok(())
+}
 
-    // Check if examples directory exists
+/// Check and verify examples directory if it exists
+fn check_examples_directory(app_path: &Path) -> Result<()> {
     let examples_dir = app_path.join("examples");
     if examples_dir.exists() {
         println!("Examples directory found!");
 
-        // List example files
         for entry in fs::read_dir(&examples_dir)? {
             let entry = entry?;
             let file_name = entry.file_name();
             println!("  Example: {}", file_name.to_string_lossy());
 
-            // Verify example files are valid Rust
             if let Some(ext) = entry.path().extension() {
                 if ext == "rs" {
                     let content = fs::read_to_string(entry.path())?;
@@ -455,18 +503,19 @@ fn test_6_4_example_code_generation() -> Result<()> {
             }
         }
     }
+    Ok(())
+}
 
-    // Check for README with examples
+/// Verify README content if it exists
+fn verify_readme_content(app_path: &Path) -> Result<()> {
     let readme_path = app_path.join("README.md");
     if readme_path.exists() {
         let readme_content = fs::read_to_string(&readme_path)?;
 
-        // Check for usage examples in README
         if readme_content.contains("## Usage") || readme_content.contains("## Example") {
             println!("README contains usage examples");
         }
 
-        // Check for testnet setup instructions
         assert!(
             readme_content.to_lowercase().contains("testnet")
                 || readme_content.to_lowercase().contains("devnet")
@@ -474,8 +523,5 @@ fn test_6_4_example_code_generation() -> Result<()> {
             "README should mention testnet setup"
         );
     }
-
-    println!("Test 6.4 Passed: Example code generation test successful");
-
     Ok(())
 }

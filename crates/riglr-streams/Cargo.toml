@@ -1,0 +1,59 @@
+[package]
+name = "riglr-streams"
+version.workspace = true
+edition = "2021"
+authors = ["RIGLR Contributors"]
+description = "Event-driven streaming capabilities for the RIGLR blockchain agent framework"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/riglr/riglr"
+keywords = ["blockchain", "streaming", "events", "solana", "ethereum"]
+categories = ["cryptography::cryptocurrencies", "network-programming", "asynchronous"]
+
+[features]
+default = []
+metrics-facade = ["metrics"]
+
+[lints]
+workspace = true
+
+[dependencies]
+riglr-core = { workspace = true  }
+riglr-events-core = { workspace = true  }
+riglr-solana-tools = { workspace = true  }
+riglr-solana-events = { workspace = true  }
+riglr-evm-tools = { workspace = true  }
+
+# Solana SDK
+solana-sdk = { workspace = true }
+
+# Use workspace dependencies where possible
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+# Metrics
+metrics = { version = "0.24.2", optional = true }
+
+# Streaming infrastructure - using compatible versions
+tungstenite = { workspace = true }
+tokio-tungstenite = { workspace = true }
+
+# Additional utilities
+rand = { workspace = true }
+toml = { workspace = true }
+dashmap = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+criterion = { version = "0.7.0", features = ["async_tokio"] }
+tracing-test = { workspace = true }
+tracing-subscriber = { workspace = true }
+tempfile = { workspace = true }

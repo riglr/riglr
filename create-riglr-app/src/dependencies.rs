@@ -4,11 +4,11 @@
 //! used in generated projects. This ensures reproducible builds and eliminates
 //! the need for network access during project generation.
 
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Known-good versions for all external dependencies
-pub static DEPENDENCY_VERSIONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+pub static DEPENDENCY_VERSIONS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     let mut deps = HashMap::new();
 
     // Core dependencies
@@ -60,26 +60,15 @@ pub static DEPENDENCY_VERSIONS: Lazy<HashMap<&'static str, &'static str>> = Lazy
 pub fn get_dependency_version(name: &str) -> String {
     DEPENDENCY_VERSIONS
         .get(name)
-        .map(|v| format!("^{}", v))
-        .unwrap_or_else(|| {
-            tracing::warn!("No pinned version found for dependency: {}, using ^1", name);
+        .map_or_else(|| {
+            tracing::warn!("No pinned version found for dependency: {name}, using ^1");
             "^1".to_string()
-        })
+        }, |v| format!("^{v}"))
 }
 
-/// Get a dependency version without caret prefix (for exact version requirements)
-#[allow(dead_code)]
-pub fn get_exact_version(name: &str) -> String {
-    DEPENDENCY_VERSIONS
-        .get(name)
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| {
-            tracing::warn!("No pinned version found for dependency: {}, using 1", name);
-            "1".to_string()
-        })
-}
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -95,11 +84,6 @@ mod tests {
         assert_eq!(get_dependency_version("unknown-crate"), "^1");
     }
 
-    #[test]
-    fn test_get_exact_version_known_crate() {
-        assert_eq!(get_exact_version("tokio"), "1.40");
-        assert_eq!(get_exact_version("axum"), "0.7");
-    }
 
     #[test]
     fn test_all_server_frameworks_have_versions() {
@@ -118,8 +102,7 @@ mod tests {
             let version = get_dependency_version(framework);
             assert_ne!(
                 version, "^1",
-                "Framework {} should have a pinned version",
-                framework
+                "Framework {framework} should have a pinned version",
             );
         }
     }

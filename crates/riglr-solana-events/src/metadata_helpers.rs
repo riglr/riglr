@@ -1,0 +1,807 @@
+//! Helper functions for working with Solana-specific EventMetadata
+//!
+//! This module provides utilities to properly create and access Solana event metadata
+//! through the ChainData abstraction from riglr-events-core.
+
+use crate::types::{EventType, ProtocolType};
+use chrono::{DateTime, Utc};
+use riglr_events_core::prelude::ChainData;
+use riglr_events_core::{EventKind, EventMetadata};
+use serde_json::json;
+use solana_sdk::pubkey::Pubkey;
+
+/// Create core `EventMetadata` without Solana-specific chain data
+#[must_use]
+#[inline]
+pub fn create_core_metadata(
+    id: String,
+    kind: EventKind,
+    source: String,
+    block_time: Option<i64>,
+) -> EventMetadata {
+    let timestamp = block_time
+        .and_then(|timestamp| DateTime::from_timestamp(timestamp, 0))
+        .unwrap_or_else(Utc::now);
+    EventMetadata::with_timestamp(id, kind, source, timestamp)
+}
+
+/// Create a new `EventMetadata` for Solana events with all required fields
+///
+/// Parameters for creating Solana metadata
+#[derive(Debug)]
+pub struct SolanaMetadataParams<'a> {
+    pub id: String,
+    pub kind: EventKind,
+    pub source: String,
+    pub slot: u64,
+    pub signature: Option<String>,
+    pub program_id: Option<Pubkey>,
+    pub instruction_index: Option<usize>,
+    pub block_time: Option<i64>,
+    pub protocol_type: &'a ProtocolType,
+    pub event_type: &'a EventType,
+}
+
+/// Note: For new code, consider using `create_core_metadata` + `SolanaEventMetadata::new`
+/// for better type safety and more explicit handling of Solana-specific metadata.
+#[must_use]
+#[inline]
+pub fn create_solana_metadata(params: SolanaMetadataParams<'_>) -> EventMetadata {
+    let protocol_data = json!({
+        "protocol_type": params.protocol_type,
+        "event_type": params.event_type,
+    });
+
+    EventMetadata::new(params.id, params.kind, params.source).with_chain_data(ChainData::Solana {
+        slot: params.slot,
+        signature: params.signature,
+        program_id: params.program_id,
+        instruction_index: params.instruction_index,
+        block_time: params.block_time,
+        protocol_data: Some(protocol_data),
+    })
+}
+
+/// Get slot from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub const fn get_slot(metadata: &EventMetadata) -> Option<u64> {
+    match metadata.chain_data {
+        Some(ChainData::Solana { slot, .. }) => Some(slot),
+        _ => None,
+    }
+}
+
+/// Get signature from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub fn get_signature(metadata: &EventMetadata) -> Option<&str> {
+    match &metadata.chain_data {
+        &Some(ChainData::Solana { ref signature, .. }) => signature.as_deref(),
+        _ => None,
+    }
+}
+
+/// Get `program_id` from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub const fn get_program_id(metadata: &EventMetadata) -> Option<&Pubkey> {
+    match &metadata.chain_data {
+        &Some(ChainData::Solana { ref program_id, .. }) => program_id.as_ref(),
+        _ => None,
+    }
+}
+
+/// Get `instruction_index` from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub const fn get_instruction_index(metadata: &EventMetadata) -> Option<usize> {
+    match metadata.chain_data {
+        Some(ChainData::Solana {
+            instruction_index, ..
+        }) => instruction_index,
+        _ => None,
+    }
+}
+
+/// Get `block_time` from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub const fn get_block_time(metadata: &EventMetadata) -> Option<i64> {
+    match metadata.chain_data {
+        Some(ChainData::Solana { block_time, .. }) => block_time,
+        _ => None,
+    }
+}
+
+/// Get `protocol_type` from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub fn get_protocol_type(metadata: &EventMetadata) -> Option<ProtocolType> {
+    match &metadata.chain_data {
+        &Some(ChainData::Solana {
+            ref protocol_data, ..
+        }) => protocol_data
+            .as_ref()
+            .and_then(|data| data.get("protocol_type"))
+            .and_then(|value| serde_json::from_value(value.clone()).ok()),
+        _ => None,
+    }
+}
+
+/// Get `event_type` from Solana `EventMetadata`
+#[must_use]
+#[inline]
+pub fn get_event_type(metadata: &EventMetadata) -> Option<EventType> {
+    match &metadata.chain_data {
+        &Some(ChainData::Solana {
+            ref protocol_data, ..
+        }) => protocol_data
+            .as_ref()
+            .and_then(|data| data.get("event_type"))
+            .and_then(|value| serde_json::from_value(value.clone()).ok()),
+        _ => None,
+    }
+}
+
+/// Set `protocol_type` in Solana `EventMetadata`
+#[inline]
+pub fn set_protocol_type(metadata: &mut EventMetadata, protocol_type: &ProtocolType) {
+    if let Some(&mut ChainData::Solana {
+        ref mut protocol_data,
+        ..
+    }) = metadata.chain_data.as_mut()
+    {
+        let data = protocol_data.get_or_insert_with(|| json!({}));
+        if let Some(obj) = data.as_object_mut() {
+            obj.insert("protocol_type".to_owned(), json!(protocol_type));
+        }
+    }
+}
+
+/// Set `event_type` in Solana `EventMetadata`
+#[inline]
+pub fn set_event_type(metadata: &mut EventMetadata, event_type: &EventType) {
+    if let Some(&mut ChainData::Solana {
+        ref mut protocol_data,
+        ..
+    }) = metadata.chain_data.as_mut()
+    {
+        let data = protocol_data.get_or_insert_with(|| json!({}));
+        if let Some(obj) = data.as_object_mut() {
+            obj.insert("event_type".to_owned(), json!(event_type));
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use core::str::FromStr;
+    use riglr_events_core::prelude::ChainData;
+    use solana_sdk::pubkey::Pubkey;
+
+    fn create_test_pubkey() -> Pubkey {
+        Pubkey::from_str("11111111111111111111111111111112")
+            .expect("Valid test pubkey string should parse successfully")
+    }
+
+    #[test]
+    fn test_create_solana_metadata_when_valid_params_should_create_metadata() {
+        // Create EventMetadata with Solana chain data directly for testing helper functions
+        let protocol_data = json!({
+            "protocol_type": ProtocolType::Jupiter,
+            "event_type": EventType::Swap,
+        });
+
+        let metadata = create_core_metadata(
+            "test_id".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            Some(1_640_995_200),
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 123,
+            signature: Some("test_signature".to_string()),
+            program_id: Some(create_test_pubkey()),
+            instruction_index: Some(5),
+            block_time: Some(1_640_995_200),
+            protocol_data: Some(protocol_data),
+        });
+
+        assert_eq!(metadata.id, "test_id");
+        assert_eq!(metadata.kind, EventKind::Transaction);
+        assert_eq!(metadata.source, "solana");
+
+        // Test the helper functions
+        assert_eq!(get_slot(&metadata), Some(123));
+        assert_eq!(get_signature(&metadata), Some("test_signature"));
+        assert_eq!(get_program_id(&metadata), Some(&create_test_pubkey()));
+        assert_eq!(get_instruction_index(&metadata), Some(5));
+        assert_eq!(get_block_time(&metadata), Some(1_640_995_200));
+        assert_eq!(get_protocol_type(&metadata), Some(ProtocolType::Jupiter));
+        assert_eq!(get_event_type(&metadata), Some(EventType::Swap));
+    }
+
+    #[test]
+    fn test_create_solana_metadata_when_none_optionals_should_create_metadata() {
+        let metadata = create_core_metadata(
+            "test_id".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            None,
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: Some(json!({
+                "protocol_type": ProtocolType::default(),
+                "event_type": EventType::default(),
+            })),
+        });
+
+        // Test the helper functions with None values
+        assert_eq!(get_signature(&metadata), None);
+        assert_eq!(get_program_id(&metadata), None);
+        assert_eq!(get_instruction_index(&metadata), None);
+        assert_eq!(get_block_time(&metadata), None);
+        assert_eq!(get_protocol_type(&metadata), Some(ProtocolType::default()));
+        assert_eq!(get_event_type(&metadata), Some(EventType::default()));
+    }
+
+    #[test]
+    fn test_get_slot_when_solana_metadata_should_return_slot() {
+        let metadata = create_core_metadata(
+            "test".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            None,
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 42,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        let slot = get_slot(&metadata);
+        assert_eq!(slot, Some(42));
+    }
+
+    #[test]
+    fn test_get_slot_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let slot = get_slot(&metadata);
+        assert_eq!(slot, None);
+    }
+
+    #[test]
+    fn test_get_signature_when_solana_metadata_with_signature_should_return_signature() {
+        let metadata = create_core_metadata(
+            "test".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            None,
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: Some("test_signature".to_string()),
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        let signature = get_signature(&metadata);
+        assert_eq!(signature, Some("test_signature"));
+    }
+
+    #[test]
+    fn test_get_signature_when_solana_metadata_without_signature_should_return_none() {
+        let metadata = create_core_metadata(
+            "test".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            None,
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        let signature = get_signature(&metadata);
+        assert_eq!(signature, None);
+    }
+
+    #[test]
+    fn test_get_signature_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let signature = get_signature(&metadata);
+        assert_eq!(signature, None);
+    }
+
+    #[test]
+    fn test_get_program_id_when_solana_metadata_with_program_id_should_return_program_id() {
+        let test_pubkey = create_test_pubkey();
+        let metadata = create_core_metadata(
+            "test".to_string(),
+            EventKind::Transaction,
+            "solana".to_string(),
+            None,
+        )
+        .with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: Some(test_pubkey),
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        let program_id = get_program_id(&metadata);
+        assert_eq!(program_id, Some(&test_pubkey));
+    }
+
+    #[test]
+    fn test_get_program_id_when_solana_metadata_without_program_id_should_return_none() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::default(),
+            event_type: &EventType::default(),
+        });
+
+        let program_id = get_program_id(&metadata);
+        assert_eq!(program_id, None);
+    }
+
+    #[test]
+    fn test_get_program_id_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let program_id = get_program_id(&metadata);
+        assert_eq!(program_id, None);
+    }
+
+    #[test]
+    fn test_get_instruction_index_when_solana_metadata_with_index_should_return_index() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: Some(7),
+            block_time: None,
+            protocol_type: &ProtocolType::default(),
+            event_type: &EventType::default(),
+        });
+
+        let index = get_instruction_index(&metadata);
+        assert_eq!(index, Some(7));
+    }
+
+    #[test]
+    fn test_get_instruction_index_when_solana_metadata_without_index_should_return_none() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::default(),
+            event_type: &EventType::default(),
+        });
+
+        let index = get_instruction_index(&metadata);
+        assert_eq!(index, None);
+    }
+
+    #[test]
+    fn test_get_instruction_index_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let index = get_instruction_index(&metadata);
+        assert_eq!(index, None);
+    }
+
+    #[test]
+    fn test_get_block_time_when_solana_metadata_with_block_time_should_return_block_time() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: Some(1_640_995_200),
+            protocol_type: &ProtocolType::default(),
+            event_type: &EventType::default(),
+        });
+
+        let block_time = get_block_time(&metadata);
+        assert_eq!(block_time, Some(1_640_995_200));
+    }
+
+    #[test]
+    fn test_get_block_time_when_solana_metadata_without_block_time_should_return_none() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::default(),
+            event_type: &EventType::default(),
+        });
+
+        let block_time = get_block_time(&metadata);
+        assert_eq!(block_time, None);
+    }
+
+    #[test]
+    fn test_get_block_time_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let block_time = get_block_time(&metadata);
+        assert_eq!(block_time, None);
+    }
+
+    #[test]
+    fn test_get_protocol_type_when_solana_metadata_should_return_protocol_type() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::Jupiter,
+            event_type: &EventType::Swap,
+        });
+
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, Some(ProtocolType::Jupiter));
+    }
+
+    #[test]
+    fn test_get_protocol_type_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, None);
+    }
+
+    #[test]
+    fn test_get_protocol_type_when_invalid_protocol_data_should_return_none() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        metadata = metadata.with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: Some(json!({"invalid": "data"})),
+        });
+
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, None);
+    }
+
+    #[test]
+    fn test_get_event_type_when_solana_metadata_should_return_event_type() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::Jupiter,
+            event_type: &EventType::Swap,
+        });
+
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, Some(EventType::Swap));
+    }
+
+    #[test]
+    fn test_get_event_type_when_no_chain_data_should_return_none() {
+        let metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, None);
+    }
+
+    #[test]
+    fn test_get_event_type_when_invalid_protocol_data_should_return_none() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        metadata = metadata.with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: Some(json!({"invalid": "data"})),
+        });
+
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, None);
+    }
+
+    #[test]
+    fn test_set_protocol_type_when_solana_metadata_should_update_protocol_type() {
+        let mut metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::Jupiter,
+            event_type: &EventType::Swap,
+        });
+
+        set_protocol_type(&mut metadata, &ProtocolType::RaydiumAmm);
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, Some(ProtocolType::RaydiumAmm));
+    }
+
+    #[test]
+    fn test_set_protocol_type_when_no_chain_data_should_not_panic() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        set_protocol_type(&mut metadata, &ProtocolType::Jupiter);
+        // Should not panic, but also won't set anything
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, None);
+    }
+
+    #[test]
+    fn test_set_protocol_type_when_empty_protocol_data_should_create_object() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        metadata = metadata.with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        set_protocol_type(&mut metadata, &ProtocolType::Jupiter);
+        let protocol_type = get_protocol_type(&metadata);
+        assert_eq!(protocol_type, Some(ProtocolType::Jupiter));
+    }
+
+    #[test]
+    fn test_set_event_type_when_solana_metadata_should_update_event_type() {
+        let mut metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::Jupiter,
+            event_type: &EventType::Swap,
+        });
+
+        set_event_type(&mut metadata, &EventType::Transfer);
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, Some(EventType::Transfer));
+    }
+
+    #[test]
+    fn test_set_event_type_when_no_chain_data_should_not_panic() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        set_event_type(&mut metadata, &EventType::Swap);
+        // Should not panic, but also won't set anything
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, None);
+    }
+
+    #[test]
+    fn test_set_event_type_when_empty_protocol_data_should_create_object() {
+        let mut metadata = EventMetadata::new(
+            "test".to_string(),
+            EventKind::Transaction,
+            "source".to_string(),
+        );
+        metadata = metadata.with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
+
+        set_event_type(&mut metadata, &EventType::Swap);
+        let event_type = get_event_type(&metadata);
+        assert_eq!(event_type, Some(EventType::Swap));
+    }
+
+    #[test]
+    fn test_edge_cases_with_all_protocol_types() {
+        let protocol_types = vec![
+            ProtocolType::OrcaWhirlpool,
+            ProtocolType::MeteoraDlmm,
+            ProtocolType::MarginFi,
+            ProtocolType::Bonk,
+            ProtocolType::PumpSwap,
+            ProtocolType::RaydiumAmm,
+            ProtocolType::RaydiumAmmV4,
+            ProtocolType::RaydiumClmm,
+            ProtocolType::RaydiumCpmm,
+            ProtocolType::Jupiter,
+            ProtocolType::Other("Custom".to_string()),
+        ];
+
+        for protocol_type in protocol_types {
+            let metadata = create_solana_metadata(SolanaMetadataParams {
+                id: "test".to_string(),
+                kind: EventKind::Transaction,
+                source: "source".to_string(),
+                slot: 0,
+                signature: None,
+                program_id: None,
+                instruction_index: None,
+                block_time: None,
+                protocol_type: &protocol_type,
+                event_type: &EventType::Swap,
+            });
+
+            let retrieved_protocol_type = get_protocol_type(&metadata);
+            assert_eq!(retrieved_protocol_type, Some(protocol_type));
+        }
+    }
+
+    #[test]
+    fn test_edge_cases_with_various_event_types() {
+        let event_types = vec![
+            EventType::Swap,
+            EventType::AddLiquidity,
+            EventType::RemoveLiquidity,
+            EventType::Transfer,
+            EventType::Unknown,
+            EventType::RaydiumSwap,
+            EventType::PumpSwapBuy,
+            EventType::BonkBuyExactIn,
+        ];
+
+        for event_type in event_types {
+            let metadata = create_solana_metadata(SolanaMetadataParams {
+                id: "test".to_string(),
+                kind: EventKind::Transaction,
+                source: "source".to_string(),
+                slot: 0,
+                signature: None,
+                program_id: None,
+                instruction_index: None,
+                block_time: None,
+                protocol_type: &ProtocolType::Jupiter,
+                event_type: &event_type,
+            });
+
+            let retrieved_event_type = get_event_type(&metadata);
+            assert_eq!(retrieved_event_type, Some(event_type));
+        }
+    }
+
+    #[test]
+    fn test_edge_cases_with_max_values() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: "test".to_string(),
+            kind: EventKind::Transaction,
+            source: "source".to_string(),
+            slot: u64::MAX,
+            signature: Some(
+                "very_long_signature_string_that_might_be_used_in_production".to_string(),
+            ),
+            program_id: Some(create_test_pubkey()),
+            instruction_index: Some(usize::MAX),
+            block_time: Some(i64::MAX),
+            protocol_type: &ProtocolType::Jupiter,
+            event_type: &EventType::Swap,
+        });
+
+        assert_eq!(get_slot(&metadata), Some(u64::MAX));
+        assert_eq!(get_instruction_index(&metadata), Some(usize::MAX));
+        assert_eq!(get_block_time(&metadata), Some(i64::MAX));
+    }
+
+    #[test]
+    fn test_edge_cases_with_empty_strings() {
+        let metadata = create_solana_metadata(SolanaMetadataParams {
+            id: String::new(),
+            kind: EventKind::Transaction,
+            source: String::new(),
+            slot: 0,
+            signature: Some(String::new()),
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_type: &ProtocolType::Other(String::new()),
+            event_type: &EventType::Unknown,
+        });
+
+        assert_eq!(metadata.id, "");
+        assert_eq!(metadata.source, "");
+        assert_eq!(get_signature(&metadata), Some(""));
+    }
+}

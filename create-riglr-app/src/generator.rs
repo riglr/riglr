@@ -5,11 +5,12 @@ use handlebars::Handlebars;
 use std::fs;
 use std::path::Path;
 
-use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
+use crate::config::{Chain, Feature, Project, ServerFramework, Template};
 use crate::dependencies::get_dependency_version;
 use crate::templates::TemplateManager;
 
 /// Template context for Handlebars rendering
+#[allow(clippy::struct_excessive_bools)]
 #[derive(serde::Serialize)]
 struct TemplateContext {
     project_name: String,
@@ -46,14 +47,20 @@ struct TemplateContext {
 }
 
 /// Project generator for creating new RIGLR projects
-pub struct ProjectGenerator {
-    config: ProjectConfig,
+#[derive(Debug)]
+pub struct Generator {
+    config: Project,
     handlebars: Handlebars<'static>,
 }
 
-impl ProjectGenerator {
-    /// Create a new ProjectGenerator with the given configuration
-    pub fn new(config: ProjectConfig) -> Self {
+impl Generator {
+    /// Create a new `Generator` with the given configuration
+    ///
+    /// # Errors
+    ///
+    /// This function currently does not return errors but is designed to be extensible
+    #[must_use]
+    pub fn new(config: Project) -> Self {
         let mut handlebars = Handlebars::new();
         handlebars.set_strict_mode(false);
 
@@ -61,6 +68,10 @@ impl ProjectGenerator {
     }
 
     /// Create the project directory structure
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if directory creation fails
     pub fn create_structure(&self, output_dir: &Path) -> Result<()> {
         // Create main directories
         fs::create_dir_all(output_dir)?;
@@ -68,7 +79,7 @@ impl ProjectGenerator {
         fs::create_dir_all(output_dir.join("src/bin"))?;
 
         // Create template-specific directories
-        match &self.config.template {
+        match self.config.template {
             Template::ApiServiceBackend => {
                 fs::create_dir_all(output_dir.join("src/routes"))?;
                 fs::create_dir_all(output_dir.join("src/middleware"))?;
@@ -108,9 +119,13 @@ impl ProjectGenerator {
     }
 
     /// Generate source files
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if template rendering or file writing fails
     pub fn generate_source_files(&self, output_dir: &Path) -> Result<()> {
         let manager = TemplateManager::default();
-        let template_content = manager.get_template_content(&self.config.template)?;
+        let template_content = manager.get_template_content(&self.config.template);
 
         // Prepare template data
         let data = self.prepare_template_data();
@@ -138,7 +153,7 @@ impl ProjectGenerator {
         }
 
         // Generate server files if needed
-        if let Some(framework) = &self.config.server_framework {
+        if let Some(ref framework) = self.config.server_framework {
             self.generate_server_files(output_dir, framework)?;
         }
 
@@ -146,9 +161,13 @@ impl ProjectGenerator {
     }
 
     /// Generate configuration files
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if template rendering, file creation, or writing fails
     pub fn generate_config_files(&self, output_dir: &Path) -> Result<()> {
         let manager = TemplateManager::default();
-        let template_content = manager.get_template_content(&self.config.template)?;
+        let template_content = manager.get_template_content(&self.config.template);
 
         let data = self.prepare_template_data();
 
@@ -156,7 +175,7 @@ impl ProjectGenerator {
         let cargo_base = self
             .handlebars
             .render_template(&template_content.cargo_toml, &data)?;
-        let cargo_content = self.build_cargo_toml(cargo_base)?;
+        let cargo_content = self.build_cargo_toml(&cargo_base)?;
         fs::write(output_dir.join("Cargo.toml"), cargo_content)?;
 
         // Generate .env.example
@@ -166,30 +185,34 @@ impl ProjectGenerator {
         fs::write(output_dir.join(".env.example"), env_content)?;
 
         // Generate .gitignore
-        let gitignore_content = self.generate_gitignore();
+        let gitignore_content = Self::generate_gitignore();
         fs::write(output_dir.join(".gitignore"), gitignore_content)?;
 
         // Generate additional config files
         if self.config.features.contains(&Feature::CiCd) {
-            self.generate_cicd_config(output_dir)?;
+            Self::generate_cicd_config(output_dir)?;
         }
 
         if self.config.features.contains(&Feature::Docker) {
-            self.generate_docker_files(output_dir)?;
+            Self::generate_docker_files(output_dir)?;
         }
 
         Ok(())
     }
 
     /// Generate example files
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file creation or writing fails
     pub fn generate_examples(&self, output_dir: &Path) -> Result<()> {
         // Generate examples based on template type
-        match &self.config.template {
+        match self.config.template {
             Template::ApiServiceBackend => {
-                self.generate_api_examples(output_dir)?;
+                Self::generate_api_examples(output_dir)?;
             }
             _ => {
-                self.generate_basic_example(output_dir)?;
+                Self::generate_basic_example(output_dir)?;
             }
         }
 
@@ -197,6 +220,10 @@ impl ProjectGenerator {
     }
 
     /// Generate README
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if template rendering or file writing fails
     pub fn generate_readme(&self, output_dir: &Path) -> Result<()> {
         let readme_template = include_str!("../templates/README.md.hbs");
         let data = self.prepare_template_data();
@@ -208,7 +235,8 @@ impl ProjectGenerator {
 
     /// Prepare template data for Handlebars
     fn prepare_template_data(&self) -> TemplateContext {
-        let chain_strings: Vec<String> = self.config.chains.iter().map(|c| c.to_string()).collect();
+        use std::string::ToString;
+        let chain_strings: Vec<String> = self.config.chains.iter().map(ToString::to_string).collect();
 
         TemplateContext {
             project_name: self.config.name.clone(),
@@ -224,7 +252,7 @@ impl ProjectGenerator {
                 .config
                 .server_framework
                 .as_ref()
-                .map(|f| format!("{:?}", f).to_lowercase())
+                .map(|f| format!("{f:?}").to_lowercase())
                 .unwrap_or_default(),
             // Feature flags
             has_web_tools: self.config.features.contains(&Feature::WebTools),
@@ -252,7 +280,7 @@ impl ProjectGenerator {
 
     /// Generate server-specific files
     fn generate_server_files(&self, output_dir: &Path, framework: &ServerFramework) -> Result<()> {
-        match framework {
+        match *framework {
             ServerFramework::Actix => {
                 self.generate_actix_server(output_dir)?;
             }
@@ -302,7 +330,7 @@ impl ProjectGenerator {
         Ok(())
     }
 
-    fn generate_api_examples(&self, output_dir: &Path) -> Result<()> {
+    fn generate_api_examples(output_dir: &Path) -> Result<()> {
         let example = r#"//! Example API client
 
 use reqwest::Client;
@@ -337,7 +365,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn generate_basic_example(&self, output_dir: &Path) -> Result<()> {
+    fn generate_basic_example(output_dir: &Path) -> Result<()> {
         let example = r#"//! Basic usage example
 
 #[tokio::main]
@@ -350,8 +378,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn generate_gitignore(&self) -> String {
-        r#"# Rust
+    fn generate_gitignore() -> String {
+        r"# Rust
 /target/
 **/*.rs.bk
 Cargo.lock
@@ -389,14 +417,14 @@ node_modules/
 
 # Docker
 .dockerignore
-"#
+"
         .to_string()
     }
 
-    fn generate_cicd_config(&self, output_dir: &Path) -> Result<()> {
+    fn generate_cicd_config(output_dir: &Path) -> Result<()> {
         fs::create_dir_all(output_dir.join(".github/workflows"))?;
 
-        let workflow = r#"name: CI
+        let workflow = r"name: CI
 
 on:
   push:
@@ -421,12 +449,12 @@ jobs:
       run: cargo test --all-features
     - name: Run clippy
       run: cargo clippy -- -D warnings
-"#;
+";
         fs::write(output_dir.join(".github/workflows/ci.yml"), workflow)?;
         Ok(())
     }
 
-    fn generate_docker_files(&self, output_dir: &Path) -> Result<()> {
+    fn generate_docker_files(output_dir: &Path) -> Result<()> {
         let dockerfile = r#"FROM rust:1.75 as builder
 
 WORKDIR /app
@@ -444,30 +472,41 @@ CMD ["{{project_name}}"]
 "#;
         fs::write(output_dir.join("Dockerfile"), dockerfile)?;
 
-        let dockerignore = r#"target/
+        let dockerignore = r"target/
 Dockerfile
 .dockerignore
 .git
 .gitignore
-"#;
+";
         fs::write(output_dir.join(".dockerignore"), dockerignore)?;
 
         Ok(())
     }
 
     /// Programmatically build Cargo.toml with dynamic dependencies
-    fn build_cargo_toml(&self, base_toml: String) -> Result<String> {
-        use toml_edit::{Array, DocumentMut, InlineTable};
+    fn build_cargo_toml(&self, base_toml: &str) -> Result<String> {
+        use toml_edit::DocumentMut;
 
         // Parse the base template
         let mut doc: DocumentMut = base_toml.parse()?;
 
         // Get the dependencies table
-        let deps = doc["dependencies"]
-            .as_table_mut()
+        let deps = doc.get_mut("dependencies")
+            .and_then(|item| item.as_table_mut())
             .ok_or_else(|| anyhow::anyhow!("No dependencies table found"))?;
 
-        // Add chain-specific dependencies
+        // Add dependencies based on configuration
+        self.add_chain_dependencies(deps);
+        self.add_feature_dependencies(deps);
+        self.add_server_framework_dependencies(deps);
+
+        Ok(doc.to_string())
+    }
+
+    /// Add chain-specific dependencies
+    fn add_chain_dependencies(&self, deps: &mut toml_edit::Table) {
+        use toml_edit::{Array, InlineTable};
+
         if self.config.chains.contains(&Chain::Solana) {
             let mut workspace_table = InlineTable::new();
             workspace_table.insert("workspace", true.into());
@@ -487,13 +526,7 @@ Dockerfile
             );
         }
 
-        if self.config.chains.contains(&Chain::Ethereum)
-            || self.config.chains.contains(&Chain::Polygon)
-            || self.config.chains.contains(&Chain::Arbitrum)
-            || self.config.chains.contains(&Chain::Base)
-            || self.config.chains.contains(&Chain::Bsc)
-            || self.config.chains.contains(&Chain::Avalanche)
-        {
+        if self.has_evm_chains() {
             let mut workspace_table = InlineTable::new();
             workspace_table.insert("workspace", true.into());
             deps.insert(
@@ -509,8 +542,12 @@ Dockerfile
             alloy_table.insert("features", features.into());
             deps.insert("alloy", toml_edit::Item::Value(alloy_table.into()));
         }
+    }
 
-        // Add feature-specific dependencies
+    /// Add feature-specific dependencies
+    fn add_feature_dependencies(&self, deps: &mut toml_edit::Table) {
+        use toml_edit::{Array, InlineTable};
+
         if self.config.features.contains(&Feature::WebTools) {
             let mut workspace_table = InlineTable::new();
             workspace_table.insert("workspace", true.into());
@@ -541,10 +578,14 @@ Dockerfile
             sqlx_table.insert("features", features.into());
             deps.insert("sqlx", toml_edit::Item::Value(sqlx_table.into()));
         }
+    }
 
-        // Add server framework dependencies
-        if let Some(framework) = &self.config.server_framework {
-            match framework {
+    /// Add server framework dependencies
+    fn add_server_framework_dependencies(&self, deps: &mut toml_edit::Table) {
+        use toml_edit::{Array, InlineTable};
+
+        if let Some(ref framework) = self.config.server_framework {
+            match *framework {
                 ServerFramework::Actix => {
                     let actix_version = get_dependency_version("actix-web");
                     let actix_cors_version = get_dependency_version("actix-cors");
@@ -585,21 +626,30 @@ Dockerfile
                 }
             }
         }
+    }
 
-        Ok(doc.to_string())
+    /// Check if any EVM chains are configured
+    fn has_evm_chains(&self) -> bool {
+        self.config.chains.contains(&Chain::Ethereum)
+            || self.config.chains.contains(&Chain::Polygon)
+            || self.config.chains.contains(&Chain::Arbitrum)
+            || self.config.chains.contains(&Chain::Base)
+            || self.config.chains.contains(&Chain::Bsc)
+            || self.config.chains.contains(&Chain::Avalanche)
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
+    use crate::config::{Chain, Feature, Project, ServerFramework, Template};
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    fn create_test_config() -> ProjectConfig {
-        ProjectConfig {
+    fn create_test_config() -> Project {
+        Project {
             name: "test_project".to_string(),
             description: "A test project".to_string(),
             author_name: "Test Author".to_string(),
@@ -614,8 +664,8 @@ mod tests {
         }
     }
 
-    fn create_minimal_config() -> ProjectConfig {
-        ProjectConfig {
+    fn create_minimal_config() -> Project {
+        Project {
             name: "minimal_project".to_string(),
             description: "A minimal project".to_string(),
             author_name: "Minimal Author".to_string(),
@@ -633,7 +683,7 @@ mod tests {
     #[test]
     fn test_new_should_create_generator_with_config() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config.clone());
+        let generator = Generator::new(config.clone());
 
         assert_eq!(generator.config.name, config.name);
         assert_eq!(generator.config.description, config.description);
@@ -644,7 +694,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_default_template_should_create_basic_dirs() -> Result<()> {
         let config = create_minimal_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -660,7 +710,7 @@ mod tests {
     fn test_create_structure_when_api_service_template_should_create_api_dirs() -> Result<()> {
         let mut config = create_test_config();
         config.template = Template::ApiServiceBackend;
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -678,7 +728,7 @@ mod tests {
     ) -> Result<()> {
         let mut config = create_test_config();
         config.template = Template::DataAnalyticsBot;
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -695,7 +745,7 @@ mod tests {
     fn test_create_structure_when_event_driven_template_should_create_trading_dirs() -> Result<()> {
         let mut config = create_test_config();
         config.template = Template::EventDrivenTradingEngine;
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -711,7 +761,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_include_tests_true_should_create_tests_dir() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -725,7 +775,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_include_examples_true_should_create_examples_dir() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -739,7 +789,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_include_docs_true_should_create_docs_dir() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -753,7 +803,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_database_feature_should_create_migrations_dir() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -767,7 +817,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_minimal_config_should_not_create_optional_dirs() -> Result<()> {
         let config = create_minimal_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -784,7 +834,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_basic_project_info() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -797,7 +847,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_template_info() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -808,7 +858,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_chain_info() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -821,7 +871,7 @@ mod tests {
     fn test_prepare_template_data_when_evm_chains_should_set_has_evm_true() {
         let mut config = create_test_config();
         config.chains = vec![Chain::Ethereum, Chain::Polygon];
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -833,7 +883,7 @@ mod tests {
     fn test_prepare_template_data_when_mixed_chains_should_set_both_true() {
         let mut config = create_test_config();
         config.chains = vec![Chain::Solana, Chain::Ethereum];
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -844,7 +894,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_server_info() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -855,7 +905,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_when_no_server_should_set_has_server_false() {
         let config = create_minimal_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -866,7 +916,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_feature_flags() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -878,7 +928,7 @@ mod tests {
     #[test]
     fn test_prepare_template_data_should_include_boolean_flags() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
 
         let data = generator.prepare_template_data();
 
@@ -890,9 +940,9 @@ mod tests {
     #[test]
     fn test_generate_gitignore_should_return_standard_content() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let _generator = Generator::new(config);
 
-        let gitignore = generator.generate_gitignore();
+        let gitignore = Generator::generate_gitignore();
 
         assert!(gitignore.contains("/target/"));
         assert!(gitignore.contains(".env"));
@@ -905,7 +955,7 @@ mod tests {
     fn test_generate_examples_when_api_service_should_call_api_examples() -> Result<()> {
         let mut config = create_test_config();
         config.template = Template::ApiServiceBackend;
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -923,7 +973,7 @@ mod tests {
     #[test]
     fn test_generate_examples_when_default_template_should_call_basic_example() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -941,13 +991,13 @@ mod tests {
     #[test]
     fn test_generate_api_examples_should_create_api_client_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let _generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
         fs::create_dir_all(output_path.join("examples"))?;
 
-        generator.generate_api_examples(output_path)?;
+        Generator::generate_api_examples(output_path)?;
 
         assert!(output_path.join("examples/api_client.rs").exists());
         let content = fs::read_to_string(output_path.join("examples/api_client.rs"))?;
@@ -961,13 +1011,13 @@ mod tests {
     #[test]
     fn test_generate_basic_example_should_create_basic_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let _generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
         fs::create_dir_all(output_path.join("examples"))?;
 
-        generator.generate_basic_example(output_path)?;
+        Generator::generate_basic_example(output_path)?;
 
         assert!(output_path.join("examples/basic.rs").exists());
         let content = fs::read_to_string(output_path.join("examples/basic.rs"))?;
@@ -979,11 +1029,11 @@ mod tests {
     #[test]
     fn test_generate_cicd_config_should_create_workflow_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let _generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
-        generator.generate_cicd_config(output_path)?;
+        Generator::generate_cicd_config(output_path)?;
 
         assert!(output_path.join(".github/workflows").exists());
         assert!(output_path.join(".github/workflows/ci.yml").exists());
@@ -998,11 +1048,11 @@ mod tests {
     #[test]
     fn test_generate_docker_files_should_create_dockerfile_and_dockerignore() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let _generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
-        generator.generate_docker_files(output_path)?;
+        Generator::generate_docker_files(output_path)?;
 
         assert!(output_path.join("Dockerfile").exists());
         assert!(output_path.join(".dockerignore").exists());
@@ -1022,7 +1072,7 @@ mod tests {
     fn test_generate_server_files_when_actix_should_call_generate_actix() -> Result<()> {
         let mut config = create_test_config();
         config.server_framework = Some(ServerFramework::Actix);
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1036,7 +1086,7 @@ mod tests {
     #[test]
     fn test_generate_server_files_when_axum_should_call_generate_axum() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1050,7 +1100,7 @@ mod tests {
     #[test]
     fn test_generate_server_files_when_warp_should_call_generate_warp() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1064,7 +1114,7 @@ mod tests {
     #[test]
     fn test_generate_server_files_when_rocket_should_call_generate_rocket() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1078,7 +1128,7 @@ mod tests {
     #[test]
     fn test_generate_actix_server_should_create_server_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1094,7 +1144,7 @@ mod tests {
     #[test]
     fn test_generate_axum_server_should_create_server_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1110,7 +1160,7 @@ mod tests {
     #[test]
     fn test_generate_warp_server_should_create_server_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1126,7 +1176,7 @@ mod tests {
     #[test]
     fn test_generate_rocket_server_should_create_server_file() -> Result<()> {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let temp_dir = TempDir::new()?;
         let output_path = temp_dir.path();
 
@@ -1142,7 +1192,7 @@ mod tests {
     #[test]
     fn test_create_structure_when_directory_creation_fails_should_propagate_error() {
         let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
+        let generator = Generator::new(config);
         let invalid_path = PathBuf::from("/this/path/does/not/exist/and/cannot/be/created");
 
         let result = generator.create_structure(&invalid_path);

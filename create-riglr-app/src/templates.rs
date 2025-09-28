@@ -1,12 +1,13 @@
 //! Template management and storage
 
 use anyhow::{Context, Result};
-use std::fs;
+use std::{env, fs};
 use std::path::PathBuf;
 
 use crate::config::{Template, TemplateInfo};
 
 /// Template manager for handling template operations
+#[derive(Debug)]
 pub struct TemplateManager {
     templates_path: PathBuf,
 }
@@ -16,7 +17,7 @@ impl Default for TemplateManager {
         // Use the Git cache directory for templates
         let templates_path = Self::get_template_cache_dir().unwrap_or_else(|_| {
             // Fallback to current directory if cache dir can't be determined
-            std::env::current_dir().unwrap().join("templates")
+            env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join("templates")
         });
 
         Self { templates_path }
@@ -25,7 +26,7 @@ impl Default for TemplateManager {
 
 impl TemplateManager {
     /// List all available templates
-    pub fn list_templates(&self) -> Result<Vec<TemplateInfo>> {
+    pub fn list_templates() -> Vec<TemplateInfo> {
         let templates = [
             Template::ApiServiceBackend,
             Template::DataAnalyticsBot,
@@ -34,11 +35,15 @@ impl TemplateManager {
             Template::Custom,
         ];
 
-        Ok(templates.iter().map(TemplateInfo::from_template).collect())
+        templates.iter().map(TemplateInfo::from_template).collect()
     }
 
     /// Get detailed information about a specific template
-    pub fn get_template_info(&self, name: &str) -> Result<TemplateInfo> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the template name is not recognized
+    pub fn get_template_info(name: &str) -> Result<TemplateInfo> {
         // Only accept exact template names, not aliases
         let valid_names = [
             "api-service",
@@ -57,17 +62,21 @@ impl TemplateManager {
     }
 
     /// Get template content for a specific template
-    pub fn get_template_content(&self, template: &Template) -> Result<TemplateContent> {
-        match template {
-            Template::ApiServiceBackend => Ok(self.get_api_service_template()),
-            Template::DataAnalyticsBot => Ok(self.get_data_analytics_template()),
-            Template::EventDrivenTradingEngine => Ok(self.get_event_driven_template()),
-            Template::MinimalApi => Ok(self.get_minimal_api_template()),
-            _ => Ok(self.get_default_template()),
+    #[must_use] pub fn get_template_content(&self, template: &Template) -> TemplateContent {
+        match *template {
+            Template::ApiServiceBackend => self.get_api_service_template(),
+            Template::DataAnalyticsBot => Self::get_data_analytics_template(),
+            Template::EventDrivenTradingEngine => Self::get_event_driven_template(),
+            Template::MinimalApi => self.get_minimal_api_template(),
+            Template::Custom => self.get_default_template(),
         }
     }
 
     /// Get the template cache directory path
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cache directory cannot be determined
     pub fn get_template_cache_dir() -> Result<PathBuf> {
         let cache_dir = dirs::cache_dir()
             .context("Could not determine cache directory")?
@@ -77,21 +86,27 @@ impl TemplateManager {
     }
 
     /// Update templates from remote repository
-    #[allow(dead_code)]
-    pub async fn update_templates(&self) -> Result<()> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if template update fails
+    pub fn update_templates() {
         // For now, this is just a placeholder
         // In production, this would clone/update from a Git repository
         println!("Template update functionality will be implemented soon");
-        Ok(())
     }
 
     /// Ensure templates are available (download if necessary)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if template download fails
     #[allow(dead_code)]
-    pub async fn ensure_templates_available(&self) -> Result<()> {
+    pub fn ensure_templates_available(&self) -> Result<()> {
         // Check if the templates directory exists and has content
         if !self.templates_path.exists() || self.is_templates_dir_empty()? {
             println!("Templates not found locally. Downloading...");
-            self.update_templates().await?;
+            Self::update_templates();
         }
         Ok(())
     }
@@ -103,26 +118,24 @@ impl TemplateManager {
             return Ok(true);
         }
         let mut entries = fs::read_dir(&self.templates_path)?;
-        Ok(entries.next().is_none())
+        let is_empty = entries.next().is_none();
+        Ok(is_empty)
     }
 
     fn get_api_service_template(&self) -> TemplateContent {
         let template_dir = self.templates_path.join("api_service");
 
         // Read files from the Git cache
-        let main_rs = self
-            .read_template_file(&template_dir.join("main.rs.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_api_service_main());
+        let main_rs = Self::read_template_file(&template_dir.join("main.rs.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_api_service_main());
         let lib_rs = Some(
-            self.read_template_file(&template_dir.join("lib.rs.hbs"))
-                .unwrap_or_else(|_| self.get_fallback_api_service_lib()),
+            Self::read_template_file(&template_dir.join("lib.rs.hbs"))
+                .unwrap_or_else(|_| Self::get_fallback_api_service_lib()),
         );
-        let cargo_toml = self
-            .read_template_file(&template_dir.join("Cargo.toml.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_cargo_toml());
-        let env_example = self
-            .read_template_file(&template_dir.join(".env.example.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_env_example());
+        let cargo_toml = Self::read_template_file(&template_dir.join("Cargo.toml.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_cargo_toml());
+        let env_example = Self::read_template_file(&template_dir.join(".env.example.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_env_example());
 
         let mut additional_files = Vec::new();
 
@@ -143,8 +156,8 @@ impl TemplateManager {
             ),
         ];
 
-        for (dest, src) in routes_files.iter().chain(middleware_files.iter()) {
-            if let Ok(content) = self.read_template_file(&template_dir.join(src)) {
+        for &(dest, src) in routes_files.iter().chain(middleware_files.iter()) {
+            if let Ok(content) = Self::read_template_file(&template_dir.join(src)) {
                 additional_files.push((dest.to_string(), content));
             }
         }
@@ -159,26 +172,27 @@ impl TemplateManager {
     }
 
     /// Read a template file from disk
-    fn read_template_file(&self, path: &PathBuf) -> Result<String> {
+    fn read_template_file(path: &PathBuf) -> Result<String> {
+        let path_display = path.display();
         fs::read_to_string(path)
-            .context(format!("Failed to read template file: {}", path.display()))
+            .context(format!("Failed to read template file: {path_display}"))
     }
 
     /// Fallback lib.rs content for API service
-    fn get_fallback_api_service_lib(&self) -> String {
-        r#"//! {{project_name}} library
+    fn get_fallback_api_service_lib() -> String {
+        r"//! {{project_name}} library
 
 pub mod routes;
 pub mod middleware;
 pub mod handlers;
 
 pub use routes::router;
-"#
+"
         .to_string()
     }
 
     /// Fallback main.rs content for API service
-    fn get_fallback_api_service_main(&self) -> String {
+    fn get_fallback_api_service_main() -> String {
         r#"//! {{project_name}} - API Service
 
 use anyhow::Result;
@@ -201,7 +215,7 @@ async fn main() -> Result<()> {
     }
 
     /// Fallback Cargo.toml content
-    fn get_fallback_cargo_toml(&self) -> String {
+    fn get_fallback_cargo_toml() -> String {
         r#"[package]
 name = "{{name}}"
 version = "0.1.0"
@@ -217,16 +231,16 @@ tracing-subscriber = "0.3"
     }
 
     /// Fallback .env.example content
-    fn get_fallback_env_example(&self) -> String {
-        r#"# Configuration
+    fn get_fallback_env_example() -> String {
+        r"# Configuration
 RUST_LOG=info
 PORT=8080
 HOST=0.0.0.0
-"#
+"
         .to_string()
     }
 
-    fn get_data_analytics_template(&self) -> TemplateContent {
+    fn get_data_analytics_template() -> TemplateContent {
         TemplateContent {
             main_rs: r#"//! {{project_name}} - Data Analytics Bot
 
@@ -300,14 +314,14 @@ impl EventHandler for LoggingEventHandler {
 "#
             .to_string(),
             lib_rs: Some(
-                r#"//! {{project_name}} library
+                r"//! {{project_name}} library
 
 pub mod analytics;
 pub mod data;
 pub mod reports;
 
 pub use analytics::Engine;
-pub use data::Ingestion;"#
+pub use data::Ingestion;"
                     .to_string(),
             ),
             cargo_toml: r#"[package]
@@ -323,9 +337,9 @@ tracing-subscriber = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1""#
                 .to_string(),
-            env_example: r#"# Data Analytics Bot Configuration
+            env_example: r"# Data Analytics Bot Configuration
 RUST_LOG=info
-DATABASE_URL=postgresql://localhost/analytics"#
+DATABASE_URL=postgresql://localhost/analytics"
                 .to_string(),
             additional_files: vec![
                 (
@@ -358,7 +372,8 @@ DATABASE_URL=postgresql://localhost/analytics"#
         }
     }
 
-    fn get_event_driven_template(&self) -> TemplateContent {
+    #[allow(clippy::too_many_lines)]
+    fn get_event_driven_template() -> TemplateContent {
         TemplateContent {
             main_rs: r#"//! {{project_name}} - Event-Driven Trading Engine
 
@@ -481,11 +496,11 @@ impl Agent for TradingAgent {
 "#
             .to_string(),
             lib_rs: Some(
-                r#"//! {{project_name}} library
+                r"//! {{project_name}} library
 
 pub mod events;
 pub mod strategies;
-pub mod execution;"#
+pub mod execution;"
                     .to_string(),
             ),
             cargo_toml: r#"[package]
@@ -500,8 +515,8 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 serde = { version = "1", features = ["derive"] }"#
                 .to_string(),
-            env_example: r#"# Event-Driven Trading Engine Configuration
-RUST_LOG=info"#
+            env_example: r"# Event-Driven Trading Engine Configuration
+RUST_LOG=info"
                 .to_string(),
             additional_files: vec![
                 (
@@ -540,15 +555,12 @@ RUST_LOG=info"#
         let template_dir = self.templates_path.join("minimal_api");
 
         // Try to read from Git cache, fall back to basic content if not available
-        let main_rs = self
-            .read_template_file(&template_dir.join("main.rs.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_minimal_api_main());
-        let cargo_toml = self
-            .read_template_file(&template_dir.join("Cargo.toml.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_minimal_api_cargo_toml());
-        let env_example = self
-            .read_template_file(&template_dir.join(".env.example.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_minimal_api_env());
+        let main_rs = Self::read_template_file(&template_dir.join("main.rs.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_minimal_api_main());
+        let cargo_toml = Self::read_template_file(&template_dir.join("Cargo.toml.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_minimal_api_cargo_toml());
+        let env_example = Self::read_template_file(&template_dir.join(".env.example.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_minimal_api_env());
 
         TemplateContent {
             main_rs,
@@ -560,7 +572,7 @@ RUST_LOG=info"#
     }
 
     /// Fallback minimal API main.rs content
-    fn get_fallback_minimal_api_main(&self) -> String {
+    fn get_fallback_minimal_api_main() -> String {
         r#"//! {{project_name}} - Minimal API Service
 
 use anyhow::Result;
@@ -588,7 +600,7 @@ async fn main() -> Result<()> {
     }
 
     /// Fallback minimal API Cargo.toml content
-    fn get_fallback_minimal_api_cargo_toml(&self) -> String {
+    fn get_fallback_minimal_api_cargo_toml() -> String {
         r#"[package]
 name = "{{name}}"
 version = "0.1.0"
@@ -607,12 +619,12 @@ serde_json = "1"
     }
 
     /// Fallback minimal API .env.example content
-    fn get_fallback_minimal_api_env(&self) -> String {
-        r#"# Minimal API Configuration
+    fn get_fallback_minimal_api_env() -> String {
+        r"# Minimal API Configuration
 RUST_LOG=info
 PORT=8080
 HOST=0.0.0.0
-"#
+"
         .to_string()
     }
 
@@ -620,15 +632,12 @@ HOST=0.0.0.0
         let template_dir = self.templates_path.join("default");
 
         // Try to read from Git cache, fall back to basic content if not available
-        let main_rs = self
-            .read_template_file(&template_dir.join("main.rs.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_default_main());
-        let cargo_toml = self
-            .read_template_file(&template_dir.join("Cargo.toml.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_cargo_toml());
-        let env_example = self
-            .read_template_file(&template_dir.join(".env.example.hbs"))
-            .unwrap_or_else(|_| self.get_fallback_env_example());
+        let main_rs = Self::read_template_file(&template_dir.join("main.rs.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_default_main());
+        let cargo_toml = Self::read_template_file(&template_dir.join("Cargo.toml.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_cargo_toml());
+        let env_example = Self::read_template_file(&template_dir.join(".env.example.hbs"))
+            .unwrap_or_else(|_| Self::get_fallback_env_example());
 
         TemplateContent {
             main_rs,
@@ -640,7 +649,7 @@ HOST=0.0.0.0
     }
 
     /// Fallback default main.rs content
-    fn get_fallback_default_main(&self) -> String {
+    fn get_fallback_default_main() -> String {
         r#"//! {{project_name}}
 
 use anyhow::Result;
@@ -656,6 +665,7 @@ async fn main() -> Result<()> {
 }
 
 /// Template content structure
+#[derive(Debug)]
 pub struct TemplateContent {
     /// Main Rust source file content
     pub main_rs: String,
@@ -670,6 +680,7 @@ pub struct TemplateContent {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -682,11 +693,8 @@ mod tests {
 
     #[test]
     fn test_list_templates_should_return_all_templates() {
-        let manager = TemplateManager::default();
-        let result = manager.list_templates();
-
-        assert!(result.is_ok());
-        let templates = result.unwrap();
+        let _manager = TemplateManager::default();
+        let templates = TemplateManager::list_templates();
         assert_eq!(templates.len(), 5); // Only 5 implemented templates
 
         // Verify specific templates are included
@@ -700,7 +708,7 @@ mod tests {
 
     #[test]
     fn test_get_template_info_when_valid_name_should_return_ok() {
-        let manager = TemplateManager::default();
+        let _manager = TemplateManager::default();
 
         // Test all valid template names
         let valid_names = [
@@ -712,8 +720,8 @@ mod tests {
         ];
 
         for name in &valid_names {
-            let result = manager.get_template_info(name);
-            assert!(result.is_ok(), "Should succeed for valid name: {}", name);
+            let result = TemplateManager::get_template_info(name);
+            assert!(result.is_ok(), "Should succeed for valid name: {name}");
             let template_info = result.unwrap();
             assert_eq!(template_info.name, *name);
         }
@@ -721,7 +729,7 @@ mod tests {
 
     #[test]
     fn test_get_template_info_when_invalid_name_should_return_err() {
-        let manager = TemplateManager::default();
+        let _manager = TemplateManager::default();
 
         let invalid_names = [
             "invalid-template",
@@ -733,8 +741,8 @@ mod tests {
         ];
 
         for name in &invalid_names {
-            let result = manager.get_template_info(name);
-            assert!(result.is_err(), "Should fail for invalid name: {}", name);
+            let result = TemplateManager::get_template_info(name);
+            assert!(result.is_err(), "Should fail for invalid name: {name}");
             assert!(result
                 .unwrap_err()
                 .to_string()
@@ -745,10 +753,7 @@ mod tests {
     #[test]
     fn test_get_template_content_when_api_service_should_return_api_template() {
         let manager = TemplateManager::default();
-        let result = manager.get_template_content(&Template::ApiServiceBackend);
-
-        assert!(result.is_ok());
-        let content = result.unwrap();
+        let content = manager.get_template_content(&Template::ApiServiceBackend);
 
         // Verify it contains API service specific content
         assert!(!content.main_rs.is_empty());
@@ -776,10 +781,7 @@ mod tests {
     #[test]
     fn test_get_template_content_when_data_analytics_should_return_analytics_template() {
         let manager = TemplateManager::default();
-        let result = manager.get_template_content(&Template::DataAnalyticsBot);
-
-        assert!(result.is_ok());
-        let content = result.unwrap();
+        let content = manager.get_template_content(&Template::DataAnalyticsBot);
 
         // Verify it contains data analytics specific content
         assert!(!content.main_rs.is_empty());
@@ -812,10 +814,7 @@ mod tests {
     #[test]
     fn test_get_template_content_when_event_driven_should_return_event_template() {
         let manager = TemplateManager::default();
-        let result = manager.get_template_content(&Template::EventDrivenTradingEngine);
-
-        assert!(result.is_ok());
-        let content = result.unwrap();
+        let content = manager.get_template_content(&Template::EventDrivenTradingEngine);
 
         // Verify it contains event driven specific content
         assert!(!content.main_rs.is_empty());
@@ -850,10 +849,7 @@ mod tests {
         let manager = TemplateManager::default();
         let template = Template::Custom;
 
-        let result = manager.get_template_content(&template);
-        assert!(result.is_ok());
-
-        let content = result.unwrap();
+        let content = manager.get_template_content(&template);
         // Verify it returns default template content
         assert!(!content.main_rs.is_empty());
         assert!(content.lib_rs.is_none()); // Default template has no lib.rs
@@ -867,10 +863,7 @@ mod tests {
         let manager = TemplateManager::default();
         let template = Template::MinimalApi;
 
-        let result = manager.get_template_content(&template);
-        assert!(result.is_ok());
-
-        let content = result.unwrap();
+        let content = manager.get_template_content(&template);
         // Verify it returns minimal API content
         assert!(!content.main_rs.is_empty());
         assert!(content.main_rs.contains("Minimal API"));
@@ -882,11 +875,11 @@ mod tests {
 
     #[test]
     fn test_update_templates_should_return_ok() {
-        let manager = TemplateManager::default();
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _manager = TemplateManager::default();
+        #[allow(clippy::absolute_paths)]
+        let _rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(manager.update_templates());
-        assert!(result.is_ok());
+        TemplateManager::update_templates();
     }
 
     #[test]
@@ -904,6 +897,7 @@ mod tests {
         // assert_eq!(content.additional_files.len(), 6);
 
         // Verify file contents are not empty
+        #[allow(clippy::pattern_type_mismatch)]
         for (path, file_content) in &content.additional_files {
             assert!(!path.is_empty());
             assert!(!file_content.is_empty());
@@ -912,8 +906,8 @@ mod tests {
 
     #[test]
     fn test_get_data_analytics_template_should_return_complete_content() {
-        let manager = TemplateManager::default();
-        let content = manager.get_data_analytics_template();
+        let _manager = TemplateManager::default();
+        let content = TemplateManager::get_data_analytics_template();
 
         // Verify all fields are populated
         assert!(!content.main_rs.is_empty());
@@ -932,8 +926,8 @@ mod tests {
 
     #[test]
     fn test_get_event_driven_template_should_return_complete_content() {
-        let manager = TemplateManager::default();
-        let content = manager.get_event_driven_template();
+        let _manager = TemplateManager::default();
+        let content = TemplateManager::get_event_driven_template();
 
         // Verify all fields are populated
         assert!(!content.main_rs.is_empty());
@@ -980,8 +974,8 @@ mod tests {
         assert_eq!(content.cargo_toml, "test cargo");
         assert_eq!(content.env_example, "test env");
         assert_eq!(content.additional_files.len(), 1);
-        assert_eq!(content.additional_files[0].0, "path");
-        assert_eq!(content.additional_files[0].1, "content");
+        assert_eq!(content.additional_files.first().unwrap().0, "path");
+        assert_eq!(content.additional_files.first().unwrap().1, "content");
     }
 
     #[test]
