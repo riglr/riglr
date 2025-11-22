@@ -104,7 +104,7 @@ tower = "0.5"
 hyper = "1.7"
 clap = { version = "4", features = ["derive"] }
 trybuild = "1.0"
-config = "0.14"
+config = "0.15"
 humantime-serde = "1.1"
 num_cpus = "1.16"
 tokio-stream = "0.1"
