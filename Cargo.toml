@@ -81,7 +81,7 @@ reqwest = { version = "0.12", features = ["json"] }
 # Database and caching
 redis = { version = "0.27", features = ["tokio-comp", "json"] }
 tokio-test = "0.4"
-criterion = "0.5"
+criterion = "0.8"
 
 # Utilities
 rand = "0.9.2"
