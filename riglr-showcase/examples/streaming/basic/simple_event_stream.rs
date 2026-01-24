@@ -8,15 +8,15 @@
 //! - Handle connection failures gracefully
 
 use anyhow::Result;
+use riglr_config::Config;
 use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
-use riglr_config::Config;
-use riglr_streams::core::{StreamManagerBuilder, HandlerExecutionMode};
-use riglr_streams::prelude::*;
 use riglr_solana_events::prelude::*;
+use riglr_streams::core::{HandlerExecutionMode, StreamManagerBuilder};
+use riglr_streams::prelude::*;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tracing::{info, error, warn, debug};
+use tracing::{debug, error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
 
     // Load configuration
     let config = Config::from_env();
-    
+
     // Build StreamManager using StreamManagerBuilder
     let stream_manager = StreamManagerBuilder::default()
         .with_execution_mode(HandlerExecutionMode::Concurrent)
@@ -39,9 +39,9 @@ async fn main() -> Result<()> {
         .build()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
-    
+
     info!("✅ StreamManager initialized with builder pattern");
-    
+
     // Start the stream manager
     stream_manager.start_all().await?;
     info!("🚀 Stream manager started");
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
 
     // Create event handler
     let handler = UnifiedEventHandler::new();
-    
+
     // Simulate streaming with periodic stats
     let mut stats_interval = tokio::time::interval(Duration::from_secs(30));
     let mut event_interval = tokio::time::interval(Duration::from_millis(500));
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
                 let rate = event_count as f64 / elapsed.as_secs_f64();
                 info!("📈 Processed {} events in {:?} ({:.2} events/sec)",
                      event_count, elapsed, rate);
-                
+
                 // Check stream manager metrics if available
                 if let Ok(metrics) = stream_manager.get_metrics().await {
                     info!("📊 Stream metrics: {:?}", metrics);
@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
                         "amount": fastrand::u64(100..=10000)
                     }),
                 );
-                
+
                 // Process event through handler
                 if let Ok(_) = handler.handle_event(Box::new(mock_event)).await {
                     event_count += 1;
@@ -102,8 +102,11 @@ async fn main() -> Result<()> {
     // Graceful shutdown
     info!("🛑 Shutting down stream manager...");
     stream_manager.stop().await?;
-    
-    info!("📊 Final event count: {} events processed", handler.get_processed_count());
+
+    info!(
+        "📊 Final event count: {} events processed",
+        handler.get_processed_count()
+    );
 
     Ok(())
 }
@@ -124,7 +127,9 @@ impl UnifiedEventHandler {
     }
 
     async fn handle_event(&self, event: Box<dyn Event>) -> ToolResult<()> {
-        let count = self.processed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let count = self
+            .processed_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         // Log event details
         info!("📦 Processing event #{}: {}", count, event.id());
@@ -203,7 +208,8 @@ impl UnifiedEventHandler {
     }
 
     fn get_processed_count(&self) -> u64 {
-        self.processed_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.processed_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -234,34 +240,30 @@ mod tests {
             .with_execution_mode(HandlerExecutionMode::Sequential)
             .with_metrics(false)
             .build();
-        
+
         // Note: This would fail without proper environment setup
         // In a real test, you'd mock the dependencies
         assert!(result.await.is_err()); // Expected to fail without config
     }
-    
+
     #[tokio::test]
     async fn test_event_processing() {
         let handler = UnifiedEventHandler::new();
-        
+
         // Test with multiple event types
         let events = vec![
             (EventKind::Transaction, json!({"tx": "data"})),
             (EventKind::Block, json!({"block": "data"})),
             (EventKind::Custom, json!({"custom": "data"})),
         ];
-        
+
         for (kind, data) in events {
-            let event = GenericEvent::new(
-                format!("test-{:?}", kind),
-                kind,
-                data,
-            );
-            
+            let event = GenericEvent::new(format!("test-{:?}", kind), kind, data);
+
             let result = handler.handle_event(Box::new(event)).await;
             assert!(result.is_ok());
         }
-        
+
         assert_eq!(handler.get_processed_count(), 3);
     }
 }
