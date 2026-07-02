@@ -52,7 +52,7 @@ alloy = { workspace = true, optional = true }
 tokio-test = { workspace = true }
 criterion = { workspace = true }
 proptest = "1.0"
-mockall = "0.13"
+mockall = "0.15"
 
 
 [features]
